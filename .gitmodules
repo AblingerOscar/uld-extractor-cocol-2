@@ -1,0 +1,3 @@
+[submodule "src/ExtractCocol2/autosupport-definition"]
+	path = src/ExtractCocol2/autosupport-definition
+	url = git@github.com:AblingerOscar/autosupport-definition.git
