@@ -1,0 +1,41 @@
+COMPILER Calc
+
+CHARACTER SETS
+  digit      = '0' .. '9'.
+  whiteSpace = CHR(9) + EOL IGNORE. /*' ' ignored by default*/ 
+
+TOKENS                      
+  '+'.  '-'.  '*'.  '/'.  '('.  ')'.
+
+TOKEN CLASSES           
+  number<<out int n>> = 
+    digit { digit }      LEX<<n = Convert.ToInt32(tokenStr);>>.
+
+NONTERMINALS
+  Calc.
+  Expr<<out int e>>.
+  Term<<out int t>>.
+  Fact<<out int f>>.
+
+RULES
+
+  Calc =                 LOCAL<<int e = 0;>> 
+    Expr<<out e>>        SEM<<Console.WriteLine(e);>>.  
+    
+  Expr<<out int e>> =    LOCAL<<int t = 0; e = 0;>> 
+    Term<<out e>>             
+    { '+' Term<<out t>>  SEM<<e = e + t;>>
+    | '-' Term<<out t>>  SEM<<e = e - t;>>
+    }.
+    
+  Term<<out int t>> =    LOCAL<<int f = 0; t = 0;>>
+    Fact<<out t>>
+    { '*' Fact<<out f>>  SEM<<t = t * f;>>
+    | '/' Fact<<out f>>  SEM<<t = t / f;>>
+    }.
+    
+  Fact<<out int f>> =    LOCAL <<f = 0;>>
+      number<<out f>>
+    | '(' Expr<<out f>> ')'.
+
+END Calc.
