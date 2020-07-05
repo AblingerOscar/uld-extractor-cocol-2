@@ -1,0 +1,207 @@
+COMPILER Cocol2Extractor
+
+CHARACTER SETS
+  letter   =  'A' .. 'Z' + 'a' .. 'z'.
+  digit    =  '0' .. '9'.
+  control  =  CHR(0) .. CHR(31) + CHR(127).
+  noQuote1 =  ANY - "'" - control.
+  noQuote2 =  ANY - '"' - control.
+  ignore   =  EOL + CHR(9) IGNORE.
+
+COMMENTS
+  FROM '//' TO EOL            HANDLER CommentHandler.
+  FROM '/*' TO '*/'           HANDLER CommentHandler.
+  FROM '(*' TO '*)' NESTED.
+  FROM '<<' TO '>>'.
+  FROM '^^' TO EOL.
+
+KEYWORDS
+  'ALIAS'.       'ANY'.         'BY'.          'CASE'.        'CHARACTER'.
+  'CHR'.         'CLASSES'.     'COMMENTS'.    'COMPILER'.    'END'.
+  'EOL'.         'EPS'.         'FOLLOWED'.    'FROM'.        'HANDLER'.
+  'IF'.          'IGNORE'.      'KEYWORDS'.    'LEX'.         'LEXLOCAL'.
+  'LOCAL'.       'NESTED'.      'NONTERMINALS'.'PRAGMAS'.     'PRE'.
+  'POST'.        'RULES'.       'SEM'.         'SYN'.         'SETS'.
+  'TO'.          'TOKEN'.       'TOKENS'.
+
+TOKENS
+  '='. '+'. '-'. '|'. '.'. '('. ')'. '['. ']'. '{'. '}'. '..'.
+
+TOKEN CLASSES
+  ident ALIAS 'identifier' = letter { letter | digit }.
+  str    ALIAS 'string' = ( "'" { noQuote1 } "'" | '"' { noQuote2 } '"' ).
+  num    ALIAS 'number' = digit { digit }.
+
+NONTERMINALS
+  Cocol2Extractor            ALIAS 'parser description'.
+
+  SetDecl                    ALIAS 'set declaration'.
+  ChrSet                     ALIAS 'character set'.
+  Special                    ALIAS 'special set element'.
+
+  CommentDecl                ALIAS 'comment declaration'.
+  Delimiter                  ALIAS 'comment delimiter'.
+  DelimiterPart              ALIAS 'comment delimiter part'.
+
+  KeywordDecl                ALIAS 'keyword declaration'.
+
+  TokenDecl                  ALIAS 'token declaration'.
+
+  TokenClassDecl             ALIAS 'token class declaration'.
+
+  PragmaDecl                 ALIAS 'pragma declaration'.
+
+  NonterminalDecl            ALIAS 'nonterminal declaration'.
+
+  AliasName                  ALIAS 'alias name'.
+
+  LexExpr                    ALIAS 'lexical expression'.
+  LexTerm                    ALIAS 'lexical term'.
+  LexFact                    ALIAS 'lexical factor'.
+
+  RuleDef                    ALIAS 'rule definition'.
+
+  SynExpr                    ALIAS 'syntax expression'.
+  SynTerm                    ALIAS 'syntax term'.
+  SynFact                    ALIAS 'syntax factor'.
+
+  LexDecl                    ALIAS 'lexical declaration'.
+  LexAction                  ALIAS 'lexical action'.
+
+  SemDecl                    ALIAS 'semantic declaration'.
+  SynAction                  ALIAS 'syntax action'.
+  SemAction                  ALIAS 'semantic action'.
+  PreAction                  ALIAS 'pre action'.
+  PostAction                 ALIAS 'post action'.
+
+RULES
+  Cocol2Extractor =
+    'COMPILER' ident 
+    [ 'LEX' ]
+    [ 'SYN' ]
+    [ 'SEM' ]
+    [ 'IGNORE' 'CASE' ]
+    [ 'CHARACTER' 'SETS' { SetDecl } ]
+    [ 'COMMENTS' { CommentDecl } ]
+    [ 'KEYWORDS' { KeywordDecl } ]
+    [ 'TOKENS' { TokenDecl } ]
+    [ 'TOKEN' 'CLASSES' { TokenClassDecl } ]
+    [ 'PRAGMAS' { PragmaDecl } ]
+    [ 'NONTERMINALS' { NonterminalDecl } ]
+    [ 'RULES' { RuleDef } ]
+    'END' ident '.'
+  .
+
+  SetDecl =
+    ident '=' ChrSet { ( '+' | '-' ) ChrSet } [ 'IGNORE' ] '.'
+  .
+
+  ChrSet =
+    ident | 'ANY' | 'EOL' | Special [ '..' Special ]
+  .
+
+  Special =
+      str | 'CHR' '(' num ')'
+  .
+
+  CommentDecl =
+    'FROM' Delimiter 'TO' Delimiter [ 'NESTED' ] [ 'HANDLER' ident ] '.'
+  .
+
+  Delimiter =
+      DelimiterPart [ DelimiterPart ]
+  .
+
+  DelimiterPart =
+      str | ident | 'CHR' '(' num ')' | 'EOL'
+  .
+
+  KeywordDecl =
+      ( ident [ AliasName ] [ '=' str { '|' str } ] | str [ AliasName ]) '.'
+  .
+
+  TokenDecl =
+    ( ident [ AliasName ] [ '=' LexExpr ] | str [ AliasName ]) '.'
+  .
+
+  TokenClassDecl =
+    ident [ AliasName ] [ '=' LexExpr [ LexDecl ] [ LexAction ] ] '.'
+  .
+
+  PragmaDecl =
+    ident [ '=' LexExpr [ LexDecl ] [ LexAction ] ] [ SemDecl ] [ SemAction ] '.'
+  .
+
+  NonterminalDecl =
+    ident [ AliasName ] '.'
+    .
+
+  AliasName =
+    'ALIAS' ( ident | str)
+  .
+
+  LexExpr =
+    LexTerm { '|' LexTerm }
+  .
+
+  LexTerm =
+    LexFact { LexFact } [ 'IF' 'FOLLOWED' 'BY' '(' LexExpr ')' ]
+  .
+
+  LexFact =
+    ident | str | 'CHR' '(' num ')' | 'EOL' | '(' LexExpr ')' | '[' LexExpr ']' | '{' LexExpr '}'
+ .
+
+  RuleDef =
+    ident '=' [ SemDecl ] [ PreAction ] [ PostAction ] SynExpr '.'
+  .
+
+  SynExpr =
+    SynTerm { '|' SynTerm }
+  .
+
+  SynTerm =
+     SynFact { SynFact }
+ .
+
+  SynFact =
+   ( ident EPS
+     | str
+     | ( SynAction | SemAction)
+     | '(' SynExpr ')'
+     | '[' SynExpr ']'
+     | '{' SynExpr '}'
+     | 'EPS'
+     | 'ANY'
+   )
+ .
+
+  LexDecl =
+    'LEXLOCAL'
+  .
+
+  LexAction =
+    'LEX'
+  .
+
+  SemDecl =
+    'LOCAL' EPS
+  .
+
+  SynAction =
+    'SYN' EPS
+  .
+
+  SemAction =
+    'SEM' EPS
+  .
+
+  PreAction =
+    'PRE' EPS
+  .
+  
+  PostAction =
+    'POST' EPS
+  .
+
+END Cocol2Extractor.

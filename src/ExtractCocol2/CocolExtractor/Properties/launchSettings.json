@@ -2,7 +2,7 @@
   "profiles": {
     "CocolExtractor": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\Users\\Oscar\\Projects\\master-thesis\\autosupport-extractor-cocol-2\\Cocol2Extractor.atg\""
+      "commandLineArgs": "\"C:\\Users\\Oscar\\Projects\\master-thesis\\autosupport-extractor-cocol-2\\Cocol2Defined.atg\""
     }
   }
 }
