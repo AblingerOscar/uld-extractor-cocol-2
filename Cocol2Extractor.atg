@@ -2,14 +2,10 @@ COMPILER Cocol2Extractor
 
 LEX <<
   private static bool CommentHandler(char comCh, int comChCount, int level) {
-    Console.WriteLine($"comCh: {comCh}, comChCount: {comChCount}, level: {level}");
-    return true;
-  }
->>
-
-SEM <<
-  private static bool CommentHandler(char comCh, int comChCount, int level) {
-    Console.WriteLine($"comCh: {comCh}, comChCount: {comChCount}, level: {level}");
+    if (level > 1) return true; // only 1st level comments are considered
+    if (comChCount == 1)
+      CocolExtractor.Builder.NextCommentIsAction(comCh == '$');
+    CocolExtractor.Builder.AddCommentChar(comCh);
     return true;
   }
 >>
@@ -43,12 +39,14 @@ TOKENS
   '='. '+'. '-'. '|'. '.'. '('. ')'. '['. ']'. '{'. '}'. '..'.
 
 TOKEN CLASSES
-  ident  ALIAS 'identifier' = letter { letter | digit }.
-  str    ALIAS 'string' = ( "'" { noQuote1 } "'" | '"' { noQuote2 } '"' ).
+  ident<<out string identifier>>  ALIAS 'identifier' =
+    letter { letter | digit } LEX<<identifier = tokenStr;>>.
+  str<<out string str>> ALIAS 'string' =
+    ( "'" { noQuote1 } "'" | '"' { noQuote2 } '"' ) LEX<<str = tokenStr.Substring(1, tokenStr.Length - 2);>>.
   num    ALIAS 'number' = digit { digit }.
 
 NONTERMINALS
-  Cocol2Extractor             ALIAS 'parser description'.
+  Cocol2Extractor            ALIAS 'parser description'.
 
   SetDecl                    ALIAS 'set declaration'.
   ChrSet                     ALIAS 'character set'.
@@ -91,7 +89,7 @@ NONTERMINALS
 
 RULES
   Cocol2Extractor =
-    'COMPILER' ident 
+    'COMPILER' ident<<out _>> 
     [ 'LEX' ]
     [ 'SYN' ]
     [ 'SEM' ]
@@ -103,24 +101,25 @@ RULES
     [ 'TOKEN' 'CLASSES' { TokenClassDecl } ]
     [ 'PRAGMAS' { PragmaDecl } ]
     [ 'NONTERMINALS' { NonterminalDecl } ]
-    [ 'RULES' { RuleDef } ]
-    'END' ident '.'
+    [ 'RULES' SEM << CocolExtractor.Builder.StartOfRules(); >>
+      { RuleDef } ]
+    'END' ident<<out _>> '.'
   .
 
   SetDecl =
-    ident '=' ChrSet { ( '+' | '-' ) ChrSet } [ 'IGNORE' ] '.'
+    ident<<out _>> '=' ChrSet { ( '+' | '-' ) ChrSet } [ 'IGNORE' ] '.'
   .
 
   ChrSet =
-    ident | 'ANY' | 'EOL' | Special [ '..' Special ]
+    ident<<out _>> | 'ANY' | 'EOL' | Special [ '..' Special ]
   .
 
   Special =
-      str | 'CHR' '(' num ')'
+      str<<out _>> | 'CHR' '(' num ')'
   .
 
   CommentDecl =
-    'FROM' Delimiter 'TO' Delimiter [ 'NESTED' ] [ 'HANDLER' ident ] '.'
+    'FROM' Delimiter 'TO' Delimiter [ 'NESTED' ] [ 'HANDLER' ident<<out _>> ] '.'
   .
 
   Delimiter =
@@ -128,31 +127,31 @@ RULES
   .
 
   DelimiterPart =
-      str | ident | 'CHR' '(' num ')' | 'EOL'
+      str<<out _>> | 'CHR' '(' num ')' | 'EOL'
   .
 
   KeywordDecl =
-      ( ident [ AliasName ] [ '=' str { '|' str } ] | str [ AliasName ]) '.'
+      ( ident<<out _>> [ AliasName ] [ '=' str<<out _>> { '|' str<<out _>> } ] | str<<out _>> [ AliasName ]) '.'
   .
 
   TokenDecl =
-    ( ident [ AliasName ] [ '=' LexExpr ] | str [ AliasName ]) '.'
+    ( ident<<out _>> [ AliasName ] [ '=' LexExpr ] | str<<out _>> [ AliasName ]) '.'
   .
 
   TokenClassDecl =
-    ident [ AliasName ] [ '=' LexExpr [ LexDecl ] [ LexAction ] ] '.'
+    ident<<out _>> [ AliasName ] [ '=' LexExpr [ LexDecl ] [ LexAction ] ] '.'
   .
 
   PragmaDecl =
-    ident [ '=' LexExpr [ LexDecl ] [ LexAction ] ] [ SemDecl ] [ SemAction ] '.'
+    ident<<out _>> [ '=' LexExpr [ LexDecl ] [ LexAction ] ] [ SemDecl ] [ SemAction ] '.'
   .
 
   NonterminalDecl =
-    ident [ AliasName ] '.'
+    ident<<out _>> [ AliasName ] '.'
     .
 
   AliasName =
-    'ALIAS' ( ident | str)
+    'ALIAS' ( ident<<out _>> | str<<out _>> )
   .
 
   LexExpr =
@@ -164,23 +163,140 @@ RULES
   .
 
   LexFact =
-    ident | str | 'CHR' '(' num ')' | 'EOL' | '(' LexExpr ')' | '[' LexExpr ']' | '{' LexExpr '}'
+    ident<<out _>> | str<<out _>> | 'CHR' '(' num ')' | 'EOL' | '(' LexExpr ')' | '[' LexExpr ']' | '{' LexExpr '}'
  .
 
-  RuleDef =
-    ident '=' [ SemDecl ] [ PreAction ] [ PostAction ] SynExpr '.'
+  RuleDef = LOCAL<<string identifier = null; ISymbol[] symbols = null;>>
+    ident<<out identifier>>
+    '=' [ SemDecl ] [ PreAction ] [ PostAction ]
+    SynExpr<<identifier, out symbols>>
+      SEM <<if (symbols != null) CocolExtractor.Builder.AddRule(identifier, symbols); >>
+    '.'
   .
 
-  SynExpr =
-    SynTerm { '|' SynTerm }
+  SynExpr<<string name, out ISymbol[] symbols>> =
+    LOCAL<<IOneOf oneOf = null;
+           ISymbol[] otherSymbols = null;
+           symbols = null;
+           uint cnt = 1;>>
+
+    SynTerm<<name + "|" + 0, out symbols>>
+    {
+      '|' SynTerm<<name + "|" + cnt, out otherSymbols>>
+            SEM<<
+            if (oneOf == null)
+            {
+              if (symbols != null)
+                AddRule(name + "|" + 0, symbols);
+              if (otherSymbols != null)
+                AddRule(name + "|" + cnt, otherSymbols);
+            }
+            else
+            {
+              if (otherSymbols != null)
+                AddRule(name + "|" + cnt, otherSymbols);
+            }
+            if (oneOf != null)
+              symbols = new ISymbol[] { oneOf };
+
+            ++cnt;
+
+            void AddRule(string ruleName, ISymbol[] ruleSymbols)
+            {
+              if (oneOf == null) // to avoid null-references -> default value
+                oneOf = new OneOf(false, new string[0]);
+
+              if (ruleSymbols.Length == 0)
+                oneOf = new OneOf(true, oneOf.Options);
+              else
+              {
+                CocolExtractor.Builder.AddRule(ruleName, ruleSymbols);
+
+                var options = new List<string>(oneOf.Options.Length + 1);
+                options.AddRange(oneOf.Options);
+                options.Add(ruleName);
+                oneOf = new OneOf(oneOf.AllowNone, options.ToArray());
+              }
+            }
+            >>
+    }
   .
 
-  SynTerm =
-     SynFact { SynFact }
+  SynTerm<<string name, out ISymbol[] symbols>> = LOCAL<<symbols = null; ISymbol[] additionalSymbols = null;uint cnt = 1;>>
+     SynFact<<name + "_0", out symbols>>
+     {
+       SynFact<<name + "_" + cnt, out additionalSymbols>>
+            SEM<<
+            ++cnt;
+            if (additionalSymbols != null)
+            {
+              if (symbols == null)
+                symbols = additionalSymbols;
+              else
+              {
+                var symbolList = new List<ISymbol>(symbols.Length + 1);
+                symbolList.AddRange(symbols);
+                symbolList.AddRange(additionalSymbols);
+                symbols = symbolList.ToArray();
+              }
+            }
+            >>
+     }
  .
 
-  SynFact =
-   ( ident EPS | str | ( SynAction | SemAction) | '(' SynExpr ')' | '[' SynExpr ']' | '{' SynExpr '}' | 'EPS' | 'ANY')
+  SynFact<<string name, out ISymbol[] symbols>> = LOCAL<<symbols = null; string str = null; ISymbol[] innerSymbols = null;>>
+    // Reference to a NonTerminal (or token class)
+    ( ident<<out str>> SEM<<symbols = new ISymbol[] { new NonTerminal(str) };>>
+      EPS
+    // String Terminal
+     | str<<out str>> SEM<<symbols = new ISymbol[] { new StringTerminal(str) };>>
+    // Syn or Sem actions should be ignored
+     | ( SynAction | SemAction) SEM<<symbols = null;>>
+    // Grouping -> simple inner rule and new NonTerminal
+    //   theoretically could also check what's inside and either bubble up (if no | was used at top level)
+    //   or wrap in an OneOf (if an | was used at top level)
+     | '(' SynExpr<<name + "$inner", out innerSymbols>> ')'
+        SEM<<
+          if (innerSymbols == null)
+            symbols = null;
+          else {
+            CocolExtractor.Builder.AddRule(name + "$inner", innerSymbols);
+            symbols = new ISymbol[] { new NonTerminal(name + "$inner") };
+          }>>
+    // Optional -> OneOf with AllowNone=true and only option being the symbols inside
+     | '[' SynExpr<<name + "$optional", out innerSymbols>> ']'
+        SEM<<
+          if (innerSymbols == null)
+            symbols = null;
+          else
+          {
+            CocolExtractor.Builder.AddRule(name + "$optional", innerSymbols);
+            symbols = new ISymbol[] { new OneOf(true, new[] { name + "$optional" }) };
+          }>>
+    // zeroOrmore -> Transformed into new rule as following:
+    //    A = { B } .
+    // is transformed into
+    //    A = OneOf(C)? .
+    //    C = B OneOf(C)? .
+     | '{' SynExpr<<name + "$zeroOrMore", out innerSymbols>> '}'
+        SEM<<
+          if (innerSymbols == null)
+            symbols = null;
+          else
+          {
+            string zeroOrMoreName = name + "$zeroOrMore";
+
+            var symbolList = new List<ISymbol>();
+            symbolList.AddRange(innerSymbols);
+            symbolList.Add(new NonTerminal(zeroOrMoreName));
+
+            CocolExtractor.Builder.AddRule(zeroOrMoreName, symbolList.ToArray());
+            symbols = new ISymbol[] { new OneOf(true, new[] { zeroOrMoreName }) };
+          }
+        >>
+     | 'EPS' SEM<<symbols = new ISymbol[0];>>
+     | 'ANY' // TODO: ?
+   )
  .
 
   LexDecl =
