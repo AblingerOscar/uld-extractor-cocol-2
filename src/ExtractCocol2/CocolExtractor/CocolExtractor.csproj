@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\DefinitionFileBuillder\DefinitionFileBuillder.csproj" />
+    <ProjectReference Include="..\autosupport-definition\autosupport-definition.csproj" />
   </ItemGroup>
 
 </Project>
