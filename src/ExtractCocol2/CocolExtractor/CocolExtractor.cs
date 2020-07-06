@@ -1,21 +1,33 @@
-﻿using autosupport_lsp_server;
-using autosupport_lsp_server.Symbols.Impl.Terminals;
-using DefinitionFileBuillder;
+﻿using DefinitionFileBuillder;
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 
 public static class CocolExtractor
 {
     public static DefinitionFileBuilder Builder { get; private set; }
 
+    public static readonly ImmutableHashSet<char> ANY_CHARACTER_SET = ImmutableHashSet.CreateRange(Enumerable.Range(0, 0x10_ffff).Select(i => (char)i));
+    public static readonly ImmutableHashSet<char> ANY_UPPERCASE_SET = ImmutableHashSet.CreateRange(Enumerable.Range('A', 'Z' - 'A' + 1).Select(i => (char)i));
+    public static readonly ImmutableHashSet<char> ANY_LOWERCASE_SET = ImmutableHashSet.CreateRange(Enumerable.Range('a', 'z' - 'a' + 1).Select(i => (char)i));
+    public static readonly ImmutableHashSet<char> ANY_LETTER_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(ch => char.IsLetter(ch)));
+    public static readonly ImmutableHashSet<char> ANY_DIGIT_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(ch => char.IsDigit(ch)));
+    public static readonly ImmutableHashSet<char> ANY_LETTER_OR_DIGIT_SET = ImmutableHashSet.CreateRange(ANY_LETTER_SET.Union(ANY_DIGIT_SET));
+    public static readonly ImmutableHashSet<char> ANY_WHITESPACE_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(ch => char.IsWhiteSpace(ch)));
+
     public static void Main(string[] args)
     {
         Builder = new DefinitionFileBuilder();
         Console.WriteLine("finished set-up");
 
+        ISet<char> set = new HashSet<char>();
+        ISet<char> set2 = new HashSet<char>();
+
+        set.ExceptWith(set2);
+        set.UnionWith(set2);
 
         Cocol2Extractor.Main(args);
-
 
         Console.WriteLine("building file");
         var langDef = Builder.Build();

@@ -10,6 +10,10 @@ LEX <<
   }
 >>
 
+SEM <<
+  private static readonly IDictionary<string, ISet<char> > definedCharacterSets = new Dictionary<string, ISet<char> >();
+>>
+
 CHARACTER SETS
   letter   =  'A' .. 'Z' + 'a' .. 'z'.
   digit    =  '0' .. '9'.
@@ -43,7 +47,7 @@ TOKEN CLASSES
     letter { letter | digit } LEX<<identifier = tokenStr;>>.
   str<<out string str>> ALIAS 'string' =
     ( "'" { noQuote1 } "'" | '"' { noQuote2 } '"' ) LEX<<str = tokenStr.Substring(1, tokenStr.Length - 2);>>.
-  num    ALIAS 'number' = digit { digit }.
+  num<<out int num>>    ALIAS 'number' = digit { digit }  LEX<<num = Convert.ToInt32(tokenStr);>>.
 
 NONTERMINALS
   Cocol2Extractor            ALIAS 'parser description'.
@@ -88,7 +92,7 @@ NONTERMINALS
   PostAction                 ALIAS 'post action'.
 
 RULES
-  Cocol2Extractor =
+  Cocol2Extractor = SEM<<definedCharacterSets.Clear();>>
     'COMPILER' ident<<out _>> 
     [ 'LEX' ]
     [ 'SYN' ]
@@ -107,15 +111,50 @@ RULES
   .
 
   SetDecl =
-    ident<<out _>> '=' ChrSet { ( '+' | '-' ) ChrSet } [ 'IGNORE' ] '.'
+      LOCAL<<
+        string name = null;
+        ISet<char> chSet = null;
+        ISet<char> chSet2 = null;
+        bool shouldAdd = true;>>
+    ident<<out name>> '='
+    ChrSet<<out chSet>>
+      {
+        ( '+' SEM<<shouldAdd = true;>> | '-' SEM<<shouldAdd = false;>> )
+        ChrSet<<out chSet2>>
+        SEM<<
+          if (shouldAdd) {
+            chSet.UnionWith(chSet2);
+          } else {
+            chSet.ExceptWith(chSet2);
+          }
+        >>
+      }
+    [ 'IGNORE' ] '.'
+    SEM<<
+      definedCharacterSets.Add(name, chSet);
+      CocolExtractor.Builder.AddCharacterSetRule(name, chSet);
+    >>
   .
 
-  ChrSet =
-    ident<<out _>> | 'ANY' | 'EOL' | Special [ '..' Special ]
+  ChrSet<<out ISet<char> chSet>> =
+      LOCAL<<
+        chSet = null;
+        string ident = null;
+        ISet<char> special = null;>>
+
+    ident<<out ident>> SEM<<chSet = definedCharacterSets[ident];>>
+    | 'ANY' SEM<<chSet = CocolExtractor.ANY_CHARACTER_SET.ToHashSet();>>
+    | 'EOL' SEM<<chSet = new HashSet<char>(1); chSet.Add('\n');>>
+    | Special<<out chSet>>
+      [
+        '..'
+        Special<<out special>> SEM<<chSet = new HashSet<char>(Enumerable.Range(chSet.First(), special.First()).Select(i => (char)i));>>
+      ]
   .
 
-  Special =
-      str<<out _>> | 'CHR' '(' num ')'
+  Special<<out ISet<char> set>> = LOCAL<<set = new HashSet<char>(); string str = null; int num = 0;>>
+      str<<out str>> SEM<<set = str.ToHashSet();>>
+      | 'CHR' '(' num<<out num>> SEM<<set.Add((char)num);>> ')'
   .
 
   CommentDecl =
@@ -127,7 +166,7 @@ RULES
   .
 
   DelimiterPart =
-      str<<out _>> | 'CHR' '(' num ')' | 'EOL'
+      str<<out _>> | 'CHR' '(' num<<out _>> ')' | 'EOL'
   .
 
   KeywordDecl =
@@ -163,7 +202,7 @@ RULES
   .
 
   LexFact =
-    ident<<out _>> | str<<out _>> | 'CHR' '(' num ')' | 'EOL' | '(' LexExpr ')' | '[' LexExpr ']' | '{' LexExpr '}'
+    ident<<out _>> | str<<out _>> | 'CHR' '(' num<<out _>> ')' | 'EOL' | '(' LexExpr ')' | '[' LexExpr ']' | '{' LexExpr '}'
  .
 
   RuleDef = LOCAL<<string identifier = null; ISymbol[] symbols = null;>>
