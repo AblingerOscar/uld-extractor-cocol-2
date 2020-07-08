@@ -1,14 +1,22 @@
-﻿using DefinitionFileBuillder;
+﻿using autosupport_lsp_server;
+using DefinitionFileBuillder;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.IO;
 using System.Linq;
+using System.Xml;
+using System.Xml.Linq;
 
 public static class CocolExtractor
 {
     public static DefinitionFileBuilder Builder { get; private set; }
 
-    public static readonly ImmutableHashSet<char> ANY_CHARACTER_SET = ImmutableHashSet.CreateRange(Enumerable.Range(0, 0x10_ffff).Select(i => (char)i));
+    // all characters that are valid in XML
+    public static readonly ImmutableHashSet<char> ANY_CHARACTER_SET = ImmutableHashSet.CreateRange(
+            Enumerable.Range(char.MinValue, char.MaxValue - char.MinValue)
+            .Select(i => (char)i)
+            .Where(c => XmlConvert.IsXmlChar(c)));
     public static readonly ImmutableHashSet<char> ANY_UPPERCASE_SET = ImmutableHashSet.CreateRange(Enumerable.Range('A', 'Z' - 'A' + 1).Select(i => (char)i));
     public static readonly ImmutableHashSet<char> ANY_LOWERCASE_SET = ImmutableHashSet.CreateRange(Enumerable.Range('a', 'z' - 'a' + 1).Select(i => (char)i));
     public static readonly ImmutableHashSet<char> ANY_LETTER_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(ch => char.IsLetter(ch)));

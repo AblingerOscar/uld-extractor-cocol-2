@@ -156,11 +156,11 @@ RULES
 
     ident<<out ident>> SEM<<chSet = definedCharacterSets[ident];>>
     | 'ANY' SEM<<chSet = CocolExtractor.ANY_CHARACTER_SET.ToHashSet();>>
-    | 'EOL' SEM<<chSet = new HashSet<char>(1); chSet.Add('\n');>>
+    | 'EOL' SEM<<chSet = new HashSet<char>(1) { '\n' };>>
     | Special<<out chSet>>
       [
         '..'
-        Special<<out special>> SEM<<chSet = new HashSet<char>(Enumerable.Range(chSet.First(), special.First()).Select(i => (char)i));>>
+        Special<<out special>> SEM<<chSet = new HashSet<char>(Enumerable.Range(chSet.First(), special.First() - chSet.First() + 1).Select(i => (char)i));>>
       ]
   .
 

@@ -6,7 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Xml;
 
 namespace DefinitionFileBuillder
 {
@@ -115,15 +117,21 @@ namespace DefinitionFileBuillder
         {
             ISymbol[] symbols;
 
-            if (chSet.SetEquals(CocolExtractor.ANY_CHARACTER_SET))
+            var sanitizedChSet = new HashSet<char>(chSet.Where(c => XmlConvert.IsXmlChar(c)));
+
+            if (sanitizedChSet.Count < chSet.Count)
+                Console.WriteLine($"Warning: some characters were dropped from character set {name} as they are not valid " +
+                    $"xml characters: <{chSet.Except(sanitizedChSet).JoinToString(">, <")}>");
+
+            if (sanitizedChSet.SetEquals(CocolExtractor.ANY_CHARACTER_SET))
                 symbols = new[] { new AnyCharacterTerminal() };
             else
             {
                 var symbolNames = new List<string>();
 
-                ExtractAllSubsets(chSet, symbolNames);
+                ExtractAllSubsets(sanitizedChSet, symbolNames);
 
-                foreach (var ch in chSet)
+                foreach (var ch in sanitizedChSet)
                 {
                     var chRuleName = "$$character_" + ch;
 
