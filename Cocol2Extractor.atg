@@ -82,6 +82,10 @@ NONTERMINALS
   SynTerm                    ALIAS 'syntax term'.
   SynFact                    ALIAS 'syntax factor'.
 
+  LexExprNoRule              ALIAS 'lexical expression (without generating any rules)'.
+  LexTermNoRule              ALIAS 'lexical term (without generating any rules)'.
+  LexFactNoRule              ALIAS 'lexical factor (without generating any rules)'.
+
   LexDecl                    ALIAS 'lexical declaration'.
   LexAction                  ALIAS 'lexical action'.
 
@@ -174,17 +178,34 @@ RULES
   .
 
   TokenDecl =
-    ( ident<<out _>> [ AliasName ] [ '=' LexExpr ] | str<<out _>> [ AliasName ]) '.'
+    ( ident<<out _>> [ AliasName ] [ '=' LexExprNoRule ] | str<<out _>> [ AliasName ]) '.'
   .
 
-  TokenClassDecl =
-    ident<<out _>> [ AliasName ] [ '=' LexExpr [ LexDecl ] [ LexAction ] ] '.'
+  TokenClassDecl = LOCAL<<string ident = null; ISymbol[] symbols = null;>>
+    ident<<out ident>> [ AliasName ]
+    [
+      '=' LexExpr<<ident, out symbols>>
+        SEM<<CocolExtractor.Builder.AddRule(ident, symbols);>>
+      [ LexDecl ] [ LexAction ]
+    ] '.'
   .
 
   PragmaDecl =
-    ident<<out _>> [ '=' LexExpr [ LexDecl ] [ LexAction ] ] [ SemDecl ] [ SemAction ] '.'
+    ident<<out _>> [ '=' LexExprNoRule [ LexDecl ] [ LexAction ] ] [ SemDecl ] [ SemAction ] '.'
   .
 
+  LexExprNoRule =
+    LexTermNoRule { '|' LexTermNoRule }
+  .
+
+  LexTermNoRule =
+    LexFactNoRule { LexFactNoRule } [ 'IF' 'FOLLOWED' 'BY' '(' LexExprNoRule ')' ]
+  .
+
+  LexFactNoRule =
+    ident<<out _>> | str<<out _>> | 'CHR' '(' num<<out _>> ')' | 'EOL' | '(' LexExprNoRule ')' | '[' LexExprNoRule ']' | '{' LexExprNoRule '}'
+  .
+  
   NonterminalDecl =
     ident<<out _>> [ AliasName ] '.'
     .
@@ -193,16 +214,108 @@ RULES
     'ALIAS' ( ident<<out _>> | str<<out _>> )
   .
 
-  LexExpr =
-    LexTerm { '|' LexTerm }
+  LexExpr<<string name, out ISymbol[] symbols>> =
+    LOCAL<<IOneOf oneOf = null;
+           ISymbol[] otherSymbols = null;
+           symbols = null;
+           uint cnt = 1;>>
+
+    LexTerm<<name + "|" + 0, out symbols>>
+    {
+      '|' LexTerm<<name + "|" + cnt, out otherSymbols>>
+            SEM<<
+            if (oneOf == null)
+            {
+              if (symbols != null)
+                AddRule(name + "|" + 0, symbols);
+              if (otherSymbols != null)
+                AddRule(name + "|" + cnt, otherSymbols);
+            }
+            else
+            {
+              if (otherSymbols != null)
+                AddRule(name + "|" + cnt, otherSymbols);
+            }
+            if (oneOf != null)
+              symbols = new ISymbol[] { oneOf };
+
+            ++cnt;
+
+            void AddRule(string ruleName, ISymbol[] ruleSymbols)
+            {
+              if (oneOf == null) // to avoid null-references -> default value
+                oneOf = new OneOf(false, new string[0]);
+
+              if (ruleSymbols.Length == 0)
+                oneOf = new OneOf(true, oneOf.Options);
+              else
+              {
+                CocolExtractor.Builder.AddRule(ruleName, ruleSymbols);
+
+                var options = new List<string>(oneOf.Options.Length + 1);
+                options.AddRange(oneOf.Options);
+                options.Add(ruleName);
+                oneOf = new OneOf(oneOf.AllowNone, options.ToArray());
+              }
+            }
+            >>
+    }
   .
 
-  LexTerm =
-    LexFact { LexFact } [ 'IF' 'FOLLOWED' 'BY' '(' LexExpr ')' ]
+  LexTerm<<string name, out ISymbol[] symbols>> = LOCAL<<symbols = null; ISymbol[] additionalSymbols = null; uint cnt = 1;>>
+    LexFact<<name + "_0", out symbols>>
+    {
+      LexFact<<name + "_" + cnt, out additionalSymbols>>
+      SEM<<
+        ++cnt;
+        var symbolList = new List<ISymbol>(symbols.Length + additionalSymbols.Length);
+        symbolList.AddRange(symbols);
+        symbolList.AddRange(additionalSymbols);
+        symbols = symbolList.ToArray();
+      >>
+    }
+    [ 'IF' 'FOLLOWED' 'BY' '(' LexExprNoRule ')' ]
   .
 
-  LexFact =
-    ident<<out _>> | str<<out _>> | 'CHR' '(' num<<out _>> ')' | 'EOL' | '(' LexExpr ')' | '[' LexExpr ']' | '{' LexExpr '}'
+  LexFact<<string name, out ISymbol[] symbols>> = LOCAL<<symbols = null; string str = null; int num = 0; ISymbol[] innerSymbols = null;>>
+    // non-terminal
+    ident<<out str>> SEM<<symbols = new ISymbol[] { new NonTerminal(str) };>>
+    // terminal
+    | str<<out str>> SEM<<symbols = new ISymbol[] { new StringTerminal(str) };>>
+    // specific character
+    | 'CHR' '(' num<<out num>> ')' SEM<<symbols = new ISymbol[] { new StringTerminal(num.ToString()) };>>
+    // End of line
+    | 'EOL' SEM<<symbols = new ISymbol[] { new AnyLineEndTerminal() };>>
+    // Grouping -> simple inner rule and new NonTerminal
+    //   theoretically could also check what's inside and either bubble up (if no | was used at top level)
+    //   or wrap in an OneOf (if an | was used at top level)
+    | '(' LexExpr<<name + "$inner", out innerSymbols>> ')'
+        SEM<<
+          CocolExtractor.Builder.AddRule(name + "$inner", innerSymbols);
+          symbols = new ISymbol[] { new NonTerminal(name + "$inner") };
+        >>
+    // Optional -> OneOf with AllowNone=true and only option being the symbols inside
+    | '[' LexExpr<<name + "$optional", out innerSymbols>> ']'
+        SEM<<
+          CocolExtractor.Builder.AddRule(name + "$optional", innerSymbols);
+          symbols = new ISymbol[] { new OneOf(true, new[] { name + "$optional" }) };
+        >>
+    // zeroOrmore -> Transformed into new rule as following:
+    //    A = { B } .
+    // is transformed into
+    //    A = OneOf(C)? .
+    //    C = B OneOf(C)? .
+    | '{' LexExpr<<name + "$zeroOrMore", out innerSymbols>> '}'
+        SEM<<
+          string zeroOrMoreName = name + "$zeroOrMore";
+
+          var symbolList = new List<ISymbol>();
+          symbolList.AddRange(innerSymbols);
+          symbolList.Add(new NonTerminal(zeroOrMoreName));
+
+          CocolExtractor.Builder.AddRule(zeroOrMoreName, symbolList.ToArray());
+          symbols = new ISymbol[] { new OneOf(true, new[] { zeroOrMoreName }) };
+        >>
  .
 
   RuleDef = LOCAL<<string identifier = null; ISymbol[] symbols = null;>>
@@ -261,7 +374,7 @@ RULES
     }
   .
 
-  SynTerm<<string name, out ISymbol[] symbols>> = LOCAL<<symbols = null; ISymbol[] additionalSymbols = null;uint cnt = 1;>>
+  SynTerm<<string name, out ISymbol[] symbols>> = LOCAL<<symbols = null; ISymbol[] additionalSymbols = null; uint cnt = 1;>>
      SynFact<<name + "_0", out symbols>>
      {
        SynFact<<name + "_" + cnt, out additionalSymbols>>
@@ -273,7 +386,7 @@ RULES
                 symbols = additionalSymbols;
               else
               {
-                var symbolList = new List<ISymbol>(symbols.Length + 1);
+                var symbolList = new List<ISymbol>(symbols.Length + additionalSymbols.Length);
                 symbolList.AddRange(symbols);
                 symbolList.AddRange(additionalSymbols);
                 symbols = symbolList.ToArray();
