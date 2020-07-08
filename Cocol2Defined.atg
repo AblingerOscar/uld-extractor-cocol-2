@@ -1,3 +1,6 @@
+//$ id Cocol-2
+//$ filePattern **/.atg
+
 COMPILER Cocol2Extractor
 
 CHARACTER SETS
@@ -165,15 +168,7 @@ RULES
  .
 
   SynFact =
-   ( ident EPS
-     | str
-     | ( SynAction | SemAction)
-     | '(' SynExpr ')'
-     | '[' SynExpr ']'
-     | '{' SynExpr '}'
-     | 'EPS'
-     | 'ANY'
-   )
+   ( ident EPS | str | ( SynAction | SemAction ) | '(' SynExpr ')' | '[' SynExpr ']' | '{' SynExpr '}' | 'EPS' | 'ANY' )
  .
 
   LexDecl =

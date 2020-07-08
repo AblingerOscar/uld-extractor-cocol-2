@@ -14,6 +14,7 @@ namespace DefinitionFileBuillder
     {
         private bool nextCommentIsAction = false;
         private StringBuilder currentComment = new StringBuilder();
+        private CommentParserState commentParserState = CommentParserState.Heading;
 
         private string languageId;
         private string languageFilePattern;
@@ -49,10 +50,50 @@ namespace DefinitionFileBuillder
 
         public void CommentIsFinished()
         {
-            // TODO
-            Console.WriteLine($"found finished {(nextCommentIsAction ? "action" : "non-action")} comment: <{currentComment}>");
+            if (nextCommentIsAction && currentComment.Length > 0)
+            {
+                switch (commentParserState)
+                {
+                    case CommentParserState.Heading:
+                        InterpretHeadingComment();
+                        break;
+                    case CommentParserState.Grammar:
+                        // TODO
+                        break;
+                }
+            }
 
             currentComment.Clear();
+        }
+
+        private void InterpretHeadingComment()
+        {
+            var comment = currentComment.ToString().Trim().Split(' ');
+            if (comment.Length < 2)
+            {
+                Console.WriteLine("heading annotation does not have enough arguments: <" + comment.JoinToString(" ") + ">");
+                return;
+            }
+
+            var arg = comment[1];
+
+            switch (comment[0])
+            {
+                case "id":
+                    languageId = arg;
+                    break;
+                case "filePattern":
+                    languageFilePattern = arg;
+                    break;
+                default:
+                    Console.WriteLine("unrecognised heading annotation: " + arg);
+                    break;
+            }
+        }
+
+        public void StartOfGrammar()
+        {
+            CommentIsFinished();
         }
 
         public void StartOfRules()
@@ -122,6 +163,12 @@ namespace DefinitionFileBuillder
                 if (!rules.ContainsKey(name))
                     rules.Add(name, new Rule(name, new[] { createSymbol() }));
             }
+        }
+
+        private enum CommentParserState
+        {
+            Heading,
+            Grammar
         }
     }
 }
