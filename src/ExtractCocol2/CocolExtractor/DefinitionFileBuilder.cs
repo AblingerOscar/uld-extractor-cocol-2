@@ -60,6 +60,11 @@ namespace DefinitionFileBuillder
             CommentIsFinished();
         }
 
+        public void AddStartRule(string ruleName)
+        {
+            startRules.Add(ruleName);
+        }
+
         public void AddRule(string ruleName, ISymbol[] symbols)
         {
             rules.Add(ruleName, new Rule(ruleName, symbols));

@@ -96,8 +96,10 @@ NONTERMINALS
   PostAction                 ALIAS 'post action'.
 
 RULES
-  Cocol2Extractor = SEM<<definedCharacterSets.Clear();>>
-    'COMPILER' ident<<out _>> 
+  Cocol2Extractor =
+      LOCAL<<string identifier = "";>>
+      SEM<<definedCharacterSets.Clear();>>
+    'COMPILER' ident<<out identifier>> SEM<<CocolExtractor.Builder.AddStartRule(identifier);>> 
     [ 'LEX' ]
     [ 'SYN' ]
     [ 'SEM' ]
