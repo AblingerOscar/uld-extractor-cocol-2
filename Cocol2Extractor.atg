@@ -3,9 +3,15 @@ COMPILER Cocol2Extractor
 LEX <<
   private static bool CommentHandler(char comCh, int comChCount, int level) {
     if (level > 1) return true; // only 1st level comments are considered
-    if (comChCount == 1)
-      CocolExtractor.Builder.NextCommentIsAction(comCh == '$');
-    CocolExtractor.Builder.AddCommentChar(comCh);
+
+    if (comChCount > 1)
+      CocolExtractor.Builder.AddCommentChar(comCh);
+    else
+    {
+      var isAction = comCh == '$';
+      CocolExtractor.Builder.NextCommentIsAction(isAction);
+    }
+
     return true;
   }
 >>
