@@ -29,13 +29,7 @@ public static class CocolExtractor
         Builder = new DefinitionFileBuilder();
         Console.WriteLine("finished set-up");
 
-        ISet<char> set = new HashSet<char>();
-        ISet<char> set2 = new HashSet<char>();
-
-        set.ExceptWith(set2);
-        set.UnionWith(set2);
-
-        Cocol2Extractor.Main(args);
+        Cocol2Extractor.Main(args.Skip(1).ToArray());
 
         Console.WriteLine("building file");
         var langDef = Builder.Build();
