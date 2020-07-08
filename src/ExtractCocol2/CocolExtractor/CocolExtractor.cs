@@ -26,6 +26,12 @@ public static class CocolExtractor
 
     public static void Main(string[] args)
     {
+        string outputFile;
+        if (args.Length == 0)
+            outputFile = Console.ReadLine();
+        else
+            outputFile = args[0];
+
         Builder = new DefinitionFileBuilder();
         Console.WriteLine("finished set-up");
 
@@ -53,8 +59,12 @@ public static class CocolExtractor
         if (errors.Length != 0)
             return;
 
-        Console.WriteLine("Printing Language Definition File to STDOUT:");
-        Console.WriteLine();
-        Console.WriteLine(langDef.SerializeToXLinq());
+        Console.WriteLine("Serializing…");
+        var xml = langDef.SerializeToXLinq();
+
+        Console.WriteLine($"Writing xml into {outputFile}…");
+        using (var stream = File.OpenWrite(outputFile)) {
+            new XDocument(new XDeclaration("1.0", "UTF-16", "yes"), xml).Save(stream, SaveOptions.None);
+        }
     }
 }
