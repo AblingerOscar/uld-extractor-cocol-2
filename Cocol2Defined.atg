@@ -1,5 +1,5 @@
 //$ id Cocol-2
-//$ filePattern **/.atg
+//$ filePattern **/*.atg
 
 COMPILER Cocol2Extractor
 
