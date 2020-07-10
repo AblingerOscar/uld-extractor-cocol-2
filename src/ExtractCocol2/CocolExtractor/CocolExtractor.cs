@@ -1,7 +1,5 @@
-﻿using autosupport_lsp_server;
-using DefinitionFileBuillder;
+﻿using DefinitionFileBuillder;
 using System;
-using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;

@@ -181,8 +181,51 @@ RULES
       str<<out _>> | 'CHR' '(' num<<out _>> ')' | 'EOL'
   .
 
-  KeywordDecl =
-      ( ident<<out _>> [ AliasName ] [ '=' str<<out _>> { '|' str<<out _>> } ] | str<<out _>> [ AliasName ]) '.'
+  KeywordDecl = LOCAL<<var str = ""; var ident = ""; var otherStr = ""; var options = new List<string>();>>
+      (
+          ident<<out ident>>
+            [ AliasName ]
+            [ '=' str<<out str>> SEM<<
+                CocolExtractor.Builder.AddKeyword(str);
+                options.Add(str);
+              >>
+              {
+                '|' str<<out otherStr>>
+                SEM<<
+                  CocolExtractor.Builder.AddKeyword(str);
+                  options.Add(str);
+                >>
+              }
+            ]
+
+            SEM<<
+              if (options.Count == 0)
+              {
+                // TODO: not sure what to do here
+              }
+              else if (options.Count == 1)
+              {
+                // no need to force ws in between, we know there must be one after it and there is only ever one symbol
+                CocolExtractor.Builder.AddRule(ident, new ISymbol[] { new StringTerminal(str) }, false, true);
+              }
+              else
+              {
+                foreach(var option in options)
+                {
+                  // no need to force ws in between, we know there must be one after it and there is only ever one symbol
+                  CocolExtractor.Builder.AddRule(ident + '>' + option, new ISymbol[] { new StringTerminal(option) }, false, true);
+                }
+
+                CocolExtractor.Builder.AddRule(
+                  ident,
+                  new ISymbol[] { new OneOf(false, options.Select(s => ident + '>' + s).ToArray()) },
+                  false,
+                  false);
+              }
+            >>
+        |
+          str<<out str>> [ AliasName ] SEM<<CocolExtractor.Builder.AddKeyword(str);>>
+      ) '.'
   .
 
   TokenDecl =
@@ -193,7 +236,7 @@ RULES
     ident<<out ident>> [ AliasName ]
     [
       '=' LexExpr<<ident, out symbols>>
-        SEM<<CocolExtractor.Builder.AddRule(ident, symbols);>>
+        SEM<<CocolExtractor.Builder.AddRule(ident, symbols, false, true);>>
       [ LexDecl ] [ LexAction ]
     ] '.'
   .
@@ -258,7 +301,7 @@ RULES
                 oneOf = new OneOf(true, oneOf.Options);
               else
               {
-                CocolExtractor.Builder.AddRule(ruleName, ruleSymbols);
+                CocolExtractor.Builder.AddRule(ruleName, ruleSymbols, false);
 
                 var options = new List<string>(oneOf.Options.Length + 1);
                 options.AddRange(oneOf.Options);
@@ -299,13 +342,13 @@ RULES
     //   or wrap in an OneOf (if an | was used at top level)
     | '(' LexExpr<<name + "$inner", out innerSymbols>> ')'
         SEM<<
-          CocolExtractor.Builder.AddRule(name + "$inner", innerSymbols);
+          CocolExtractor.Builder.AddRule(name + "$inner", innerSymbols, false);
           symbols = new ISymbol[] { new NonTerminal(name + "$inner") };
         >>
     // Optional -> OneOf with AllowNone=true and only option being the symbols inside
     | '[' LexExpr<<name + "$optional", out innerSymbols>> ']'
         SEM<<
-          CocolExtractor.Builder.AddRule(name + "$optional", innerSymbols);
+          CocolExtractor.Builder.AddRule(name + "$optional", innerSymbols, false);
           symbols = new ISymbol[] { new OneOf(true, new[] { name + "$optional" }) };
         >>
     // zeroOrmore -> Transformed into new rule as following:
@@ -319,9 +362,9 @@ RULES
 
           var symbolList = new List<ISymbol>();
           symbolList.AddRange(innerSymbols);
-          symbolList.Add(new NonTerminal(zeroOrMoreName));
+          symbolList.Add(new OneOf(true, new[] { zeroOrMoreName }));
 
-          CocolExtractor.Builder.AddRule(zeroOrMoreName, symbolList.ToArray());
+          CocolExtractor.Builder.AddRule(zeroOrMoreName, symbolList.ToArray(), false);
           symbols = new ISymbol[] { new OneOf(true, new[] { zeroOrMoreName }) };
         >>
  .
@@ -448,7 +491,7 @@ RULES
 
             var symbolList = new List<ISymbol>();
             symbolList.AddRange(innerSymbols);
-            symbolList.Add(new NonTerminal(zeroOrMoreName));
+            symbolList.Add(new OneOf(true, new[] { zeroOrMoreName }));
 
             CocolExtractor.Builder.AddRule(zeroOrMoreName, symbolList.ToArray());
             symbols = new ISymbol[] { new OneOf(true, new[] { zeroOrMoreName }) };
