@@ -1,36 +1,34 @@
-﻿using autosupport_lsp_server;
-using autosupport_lsp_server.Symbols;
-using autosupport_lsp_server.Symbols.Impl;
-using autosupport_lsp_server.Symbols.Impl.Terminals;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Xml;
+using autosupport_lsp_server;
+using autosupport_lsp_server.Symbols;
+using autosupport_lsp_server.Symbols.Impl;
+using autosupport_lsp_server.Symbols.Impl.Terminals;
 
-namespace DefinitionFileBuillder
+// ReSharper disable once CheckNamespace
+namespace DefinitionFileBuilder
 {
     public class DefinitionFileBuilder
     {
         private const string WHITESPACE_RULE = "$$ws";
 
-        private bool nextCommentIsAction = false;
-        private StringBuilder currentComment = new StringBuilder();
-        private CommentParserState commentParserState = CommentParserState.Heading;
+        private bool nextCommentIsAction;
+        private readonly StringBuilder currentComment = new StringBuilder();
+        private CommentParserState commentParserState = CommentParserState.HEADING;
 
-        private List<string> keywords = new List<string>();
+        private readonly List<string> keywords = new List<string>();
 
         private string languageId;
         private string languageFilePattern;
-        private IList<CommentRule> documentationComments = new List<CommentRule>();
-        private IList<CommentRule> normalComments = new List<CommentRule>();
-        private IList<string> startRules = new List<string>();
-        private Dictionary<string, IRule> rules = new Dictionary<string, IRule>();
-        private IList<string> rulesToForceWhitespaceInBetween = new List<string>();
-
-        public IList<string> Errors = new List<string>();
+        private readonly IList<CommentRule> documentationComments = new List<CommentRule>();
+        private readonly IList<CommentRule> normalComments = new List<CommentRule>();
+        private readonly IList<string> startRules = new List<string>();
+        private readonly Dictionary<string, IRule> rules = new Dictionary<string, IRule>();
+        private readonly IList<string> rulesToForceWhitespaceInBetween = new List<string>();
 
         public DefinitionFileBuilder()
         {
@@ -52,8 +50,10 @@ namespace DefinitionFileBuillder
             AddWhitespaceRulesToStartRules();
 
             return new AutosupportLanguageDefinition(
-                    languageId, languageFilePattern, commentRules: new CommentRules(normalComments.ToArray(), documentationComments.ToArray()), startRules.ToArray(), rules
-                );
+                languageId, languageFilePattern,
+                commentRules: new CommentRules(normalComments.ToArray(), documentationComments.ToArray()),
+                startRules.ToArray(), rules
+            );
         }
 
         private void AddWhitespaceRulesToStartRules()
@@ -63,7 +63,7 @@ namespace DefinitionFileBuillder
                 var newSymbols = new List<ISymbol>(rules[startRule].Symbols);
 
                 // add optional whitespace at the start of the start rule(s)
-                newSymbols.Insert(0, new OneOf(true, new[] {WHITESPACE_RULE}));
+                newSymbols.Insert(0, new OneOf(true, new[] { WHITESPACE_RULE }));
 
                 ConvertWsAtEndToOptional(startRule, newSymbols);
 
@@ -71,10 +71,11 @@ namespace DefinitionFileBuillder
             }
         }
 
-        private void ConvertWsAtEndToOptional(string startRule, IList<ISymbol> newSymbols, ISet<string> previousRules = null)
+        private void ConvertWsAtEndToOptional(string startRule, IList<ISymbol> newSymbols,
+            ISet<string> previousRules = null)
         {
             if (previousRules != null && previousRules.Contains(startRule))
-               return;
+                return;
 
             previousRules ??= new HashSet<string>();
             previousRules.Add(startRule);
@@ -113,7 +114,6 @@ namespace DefinitionFileBuillder
                             option,
                             new List<ISymbol>(rules[option].Symbols),
                             previousRules));
-
                 }
             );
         }
@@ -127,16 +127,16 @@ namespace DefinitionFileBuillder
         public void AddCommentChar(char ch)
             => currentComment.Append(ch);
 
-        public void CommentIsFinished()
+        private void CommentIsFinished()
         {
             if (nextCommentIsAction && currentComment.Length > 0)
             {
                 switch (commentParserState)
                 {
-                    case CommentParserState.Heading:
+                    case CommentParserState.HEADING:
                         InterpretHeadingComment();
                         break;
-                    case CommentParserState.Grammar:
+                    case CommentParserState.GRAMMAR:
                         // TODO
                         break;
                 }
@@ -150,7 +150,8 @@ namespace DefinitionFileBuillder
             var comment = currentComment.ToString().Trim().Split(' ');
             if (comment.Length < 2)
             {
-                Console.WriteLine("heading annotation does not have enough arguments: <" + comment.JoinToString(" ") + ">");
+                Console.WriteLine("heading annotation does not have enough arguments: <" + comment.JoinToString(" ") +
+                                  ">");
                 return;
             }
 
@@ -187,7 +188,8 @@ namespace DefinitionFileBuillder
 
         public void AddKeyword(string keyword) => keywords.Add(keyword);
 
-        public void AddRule(string ruleName, ISymbol[] symbols, bool forceWhitespacesInBetween = true, bool forceWhitespacesAtTheEnd = false)
+        public void AddRule(string ruleName, ISymbol[] symbols, bool forceWhitespacesInBetween = true,
+            bool forceWhitespacesAtTheEnd = false)
         {
             if (forceWhitespacesInBetween)
                 rulesToForceWhitespaceInBetween.Add(ruleName);
@@ -203,7 +205,7 @@ namespace DefinitionFileBuillder
             var symbolsWithWs = new List<ISymbol>();
 
             var i = -1;
-            foreach(var symbol in symbols)
+            foreach (var symbol in symbols)
             {
                 ++i;
                 symbol.Match(
@@ -212,15 +214,13 @@ namespace DefinitionFileBuillder
                         symbolsWithWs.Add(terminal);
                         if (terminal is StringTerminal str
                             && keywords.Contains(str.String)
+                            // ReSharper disable once AccessToModifiedClosure
                             && SymbolAtPositionCanOnlyBeKeyword(symbols, i + 1))
                             symbolsWithWs.Add(forcedWs);
                         else // token
                             symbolsWithWs.Add(new OneOf(true, new[] { WHITESPACE_RULE }));
                     },
-                    nonTerminal =>
-                    {
-                        symbolsWithWs.Add(nonTerminal);
-                    },
+                    nonTerminal => { symbolsWithWs.Add(nonTerminal); },
                     action =>
                     {
                         // insert action at the end, but before any whitespace
@@ -231,17 +231,15 @@ namespace DefinitionFileBuillder
                         else
                             symbolsWithWs.Add(action);
                     },
-                    oneOf =>
-                    {
-                        symbolsWithWs.Add(oneOf);
-                    }
+                    oneOf => { symbolsWithWs.Add(oneOf); }
                 );
-            };
+            }
 
             return symbolsWithWs;
         }
 
-        private bool SymbolAtPositionCanOnlyBeKeyword(IReadOnlyList<ISymbol> symbols, int i, IImmutableList<string> visitedSymbols = null)
+        private bool SymbolAtPositionCanOnlyBeKeyword(IReadOnlyList<ISymbol> symbols, int i,
+            IImmutableList<string> visitedSymbols = null)
         {
             if (symbols.Count <= i)
                 return false;
@@ -276,11 +274,12 @@ namespace DefinitionFileBuillder
             var sanitizedChSet = new HashSet<char>(chSet.Where(XmlConvert.IsXmlChar));
 
             if (sanitizedChSet.Count < chSet.Count)
-                Console.WriteLine($"Warning: some characters were dropped from character set {name} as they are not valid " +
+                Console.WriteLine(
+                    $"Warning: some characters were dropped from character set {name} as they are not valid " +
                     $"xml characters: <{chSet.Except(sanitizedChSet).JoinToString(">, <")}>");
 
             if (sanitizedChSet.SetEquals(CocolExtractor.ANY_CHARACTER_SET))
-                symbols = new[] { new AnyCharacterTerminal() };
+                symbols = new ISymbol[] { new AnyCharacterTerminal() };
             else
             {
                 var symbolNames = new List<string>();
@@ -306,17 +305,26 @@ namespace DefinitionFileBuillder
 
         private void ExtractAllSubsets(ISet<char> chSet, List<string> symbolNames)
         {
-            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_LETTER_OR_DIGIT_SET, "$$any_letter_or_digit", () => new AnyLetterOrDigitTerminal());
-            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_LETTER_SET, "$$any_letter", () => new AnyLetterTerminal());
-            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_DIGIT_SET, "$$any_digit", () => new AnyDigitTerminal());
-            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_UPPERCASE_SET, "$$any_uppercase", () => new AnyUppercaseLetterTerminal());
-            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_LOWERCASE_SET, "$$any_lowercase", () => new AnyLowercaseLetterTerminal());
-            ExtractSubsetIfPossible(chSet, symbolNames, ImmutableHashSet.Create('\n'), "$$any_lineEnd", () => new AnyLineEndTerminal());
-            ExtractSubsetIfPossible(chSet, symbolNames, ImmutableHashSet.Create('\r'), "$$any_lineEnd", () => new AnyLineEndTerminal());
-            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_WHITESPACE_SET, "$$any_whitespace", () => new AnyWhitespaceTerminal());
+            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_LETTER_OR_DIGIT_SET, "$$any_letter_or_digit",
+                () => new AnyLetterOrDigitTerminal());
+            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_LETTER_SET, "$$any_letter",
+                () => new AnyLetterTerminal());
+            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_DIGIT_SET, "$$any_digit",
+                () => new AnyDigitTerminal());
+            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_UPPERCASE_SET, "$$any_uppercase",
+                () => new AnyUppercaseLetterTerminal());
+            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_LOWERCASE_SET, "$$any_lowercase",
+                () => new AnyLowercaseLetterTerminal());
+            ExtractSubsetIfPossible(chSet, symbolNames, ImmutableHashSet.Create('\n'), "$$any_lineEnd",
+                () => new AnyLineEndTerminal());
+            ExtractSubsetIfPossible(chSet, symbolNames, ImmutableHashSet.Create('\r'), "$$any_lineEnd",
+                () => new AnyLineEndTerminal());
+            ExtractSubsetIfPossible(chSet, symbolNames, CocolExtractor.ANY_WHITESPACE_SET, "$$any_whitespace",
+                () => new AnyWhitespaceTerminal());
         }
 
-        private void ExtractSubsetIfPossible(ISet<char> chSet, IList<string> symbolNames, ImmutableHashSet<char> subset, string name, Func<ISymbol> createSymbol)
+        private void ExtractSubsetIfPossible(ISet<char> chSet, IList<string> symbolNames, ImmutableHashSet<char> subset,
+            string name, Func<ISymbol> createSymbol)
         {
             if (subset.IsSubsetOf(chSet))
             {
@@ -330,8 +338,8 @@ namespace DefinitionFileBuillder
 
         private enum CommentParserState
         {
-            Heading,
-            Grammar
+            HEADING,
+            GRAMMAR
         }
     }
 }
