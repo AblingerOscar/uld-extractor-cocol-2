@@ -2,6 +2,7 @@
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
+using System.Xml;
 using System.Xml.Linq;
 
 // ReSharper disable once CheckNamespace
@@ -12,28 +13,16 @@ public static class CocolExtractor
     // ReSharper disable InconsistentNaming
 
     // all characters that are valid in XML
-    /*
     public static readonly ImmutableHashSet<char> ANY_CHARACTER_SET = ImmutableHashSet.CreateRange(
             Enumerable.Range(char.MinValue, char.MaxValue - char.MinValue)
             .Select(i => (char)i)
-            .Where(c => XmlConvert.IsXmlChar(c)));
-            */
-    public static readonly ImmutableHashSet<char> ANY_CHARACTER_SET = ImmutableHashSet.CreateRange(
-        Enumerable.Range('A', 'Z' - 'A' + 1)
-                .Concat(Enumerable.Range('a', 'z' - 'a' + 1))
-                .Concat(Enumerable.Range('0', '9'))
-                .Select(i => (char)i)
-                .Append(' ')
-                .Append('\n')
-                .Append('\r')
-                .Append('\t')
-        );
+            .Where(XmlConvert.IsXmlChar));
     public static readonly ImmutableHashSet<char> ANY_UPPERCASE_SET = ImmutableHashSet.CreateRange(Enumerable.Range('A', 'Z' - 'A' + 1).Select(i => (char)i));
     public static readonly ImmutableHashSet<char> ANY_LOWERCASE_SET = ImmutableHashSet.CreateRange(Enumerable.Range('a', 'z' - 'a' + 1).Select(i => (char)i));
-    public static readonly ImmutableHashSet<char> ANY_LETTER_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(ch => char.IsLetter(ch)));
-    public static readonly ImmutableHashSet<char> ANY_DIGIT_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(ch => char.IsDigit(ch)));
+    public static readonly ImmutableHashSet<char> ANY_LETTER_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(char.IsLetter));
+    public static readonly ImmutableHashSet<char> ANY_DIGIT_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(char.IsDigit));
     public static readonly ImmutableHashSet<char> ANY_LETTER_OR_DIGIT_SET = ImmutableHashSet.CreateRange(ANY_LETTER_SET.Union(ANY_DIGIT_SET));
-    public static readonly ImmutableHashSet<char> ANY_WHITESPACE_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(ch => char.IsWhiteSpace(ch)));
+    public static readonly ImmutableHashSet<char> ANY_WHITESPACE_SET = ImmutableHashSet.CreateRange(ANY_CHARACTER_SET.Where(char.IsWhiteSpace));
     // ReSharper restore InconsistentNaming
 
     public static void Main(string[] args)

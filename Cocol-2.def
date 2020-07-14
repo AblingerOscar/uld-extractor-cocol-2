@@ -14,122 +14,51 @@
         <option>$$ws</option>
       </oneOf>
     </rule>
-    <rule name="$$any_letter">
-      <letter />
+    <rule name="$$any_uppercase">
+      <uppercaseLetter />
+    </rule>
+    <rule name="$$any_lowercase">
+      <lowercaseLetter />
     </rule>
     <rule name="letter">
-      <nonTerminal referencedRule="$$any_letter" />
-    </rule>
-    <rule name="$$any_digit">
-      <digit />
+      <oneOf allowNone="false">
+        <option>$$any_uppercase</option>
+        <option>$$any_lowercase</option>
+      </oneOf>
     </rule>
     <rule name="digit">
-      <nonTerminal referencedRule="$$any_digit" />
+      <characterOf>0123456789</characterOf>
     </rule>
     <rule name="$$any_lineEnd">
       <lineEnd />
     </rule>
-    <rule name="$$character_&#x9;">
-      <string>	</string>
-    </rule>
-    <rule name="$$character_">
-      <string></string>
+    <rule name="control|0">
+      <characterOf>	</characterOf>
     </rule>
     <rule name="control">
       <oneOf allowNone="false">
         <option>$$any_lineEnd</option>
         <option>$$any_lineEnd</option>
-        <option>$$character_	</option>
-        <option>$$character_</option>
+        <option>control|0</option>
       </oneOf>
-    </rule>
-    <rule name="$$any_letter_or_digit">
-      <letterOrDigit />
-    </rule>
-    <rule name="$$character_ ">
-      <string> </string>
-    </rule>
-    <rule name="$$character_:">
-      <string>:</string>
-    </rule>
-    <rule name="$$character_;">
-      <string>;</string>
-    </rule>
-    <rule name="$$character_&lt;">
-      <string>&lt;</string>
-    </rule>
-    <rule name="$$character_=">
-      <string>=</string>
-    </rule>
-    <rule name="$$character_&gt;">
-      <string>&gt;</string>
-    </rule>
-    <rule name="$$character_?">
-      <string>?</string>
-    </rule>
-    <rule name="$$character_@">
-      <string>@</string>
-    </rule>
-    <rule name="$$character_[">
-      <string>[</string>
-    </rule>
-    <rule name="$$character_\">
-      <string>\</string>
-    </rule>
-    <rule name="$$character_]">
-      <string>]</string>
-    </rule>
-    <rule name="$$character_^">
-      <string>^</string>
-    </rule>
-    <rule name="$$character__">
-      <string>_</string>
-    </rule>
-    <rule name="$$character_`">
-      <string>`</string>
     </rule>
     <rule name="noQuote1">
-      <oneOf allowNone="false">
-        <option>$$any_letter_or_digit</option>
-        <option>$$character_ </option>
-        <option>$$character_:</option>
-        <option>$$character_;</option>
-        <option>$$character_&lt;</option>
-        <option>$$character_=</option>
-        <option>$$character_&gt;</option>
-        <option>$$character_?</option>
-        <option>$$character_@</option>
-        <option>$$character_[</option>
-        <option>$$character_\</option>
-        <option>$$character_]</option>
-        <option>$$character_^</option>
-        <option>$$character__</option>
-        <option>$$character_`</option>
-      </oneOf>
+      <characterExcept>'	
+
+</characterExcept>
     </rule>
     <rule name="noQuote2">
-      <oneOf allowNone="false">
-        <option>$$any_letter_or_digit</option>
-        <option>$$character_ </option>
-        <option>$$character_:</option>
-        <option>$$character_;</option>
-        <option>$$character_&lt;</option>
-        <option>$$character_=</option>
-        <option>$$character_&gt;</option>
-        <option>$$character_?</option>
-        <option>$$character_@</option>
-        <option>$$character_[</option>
-        <option>$$character_\</option>
-        <option>$$character_]</option>
-        <option>$$character_^</option>
-        <option>$$character__</option>
-        <option>$$character_`</option>
-      </oneOf>
+      <characterExcept>"	
+
+</characterExcept>
+    </rule>
+    <rule name="ignore|0">
+      <characterOf>	</characterOf>
     </rule>
     <rule name="ignore">
       <oneOf allowNone="false">
         <option>$$any_lineEnd</option>
-        <option>$$character_	</option>
+        <option>ignore|0</option>
       </oneOf>
     </rule>
     <rule name="ident|0_1$zeroOrMore|0">

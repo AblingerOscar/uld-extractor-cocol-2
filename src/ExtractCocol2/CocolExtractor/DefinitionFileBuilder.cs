@@ -267,40 +267,56 @@ namespace DefinitionFileBuilder
             );
         }
 
-        public void AddCharacterSetRule(string name, ISet<char> chSet)
+        public void AddCharacterSetRule(string name, ChSet chSet)
         {
-            ISymbol[] symbols;
-
-            var sanitizedChSet = new HashSet<char>(chSet.Where(XmlConvert.IsXmlChar));
-
-            if (sanitizedChSet.Count < chSet.Count)
-                Console.WriteLine(
-                    $"Warning: some characters were dropped from character set {name} as they are not valid " +
-                    $"xml characters: <{chSet.Except(sanitizedChSet).JoinToString(">, <")}>");
-
-            if (sanitizedChSet.SetEquals(CocolExtractor.ANY_CHARACTER_SET))
-                symbols = new ISymbol[] { new AnyCharacterTerminal() };
-            else
+            if (!chSet.Symbols.HasValue)
             {
-                var symbolNames = new List<string>();
-
-                ExtractAllSubsets(sanitizedChSet, symbolNames);
-
-                foreach (var ch in sanitizedChSet)
-                {
-                    var chRuleName = "$$character_" + ch;
-
-                    symbolNames.Add(chRuleName);
-                    if (!rules.ContainsKey(chRuleName))
-                        rules.Add(chRuleName, new Rule(chRuleName, new[] { new StringTerminal(ch.ToString()) }));
-                }
-
-                symbols = symbolNames.Count == 1
-                    ? new ISymbol[] { new NonTerminal(symbolNames[0]) }
-                    : new ISymbol[] { new OneOf(false, symbolNames.ToArray()) };
+                Console.WriteLine($"Character set {name} is an empty set. No rule was added!");
+                return;
             }
 
-            rules.Add(name, new Rule(name, symbols));
+            var additionalRules = new List<string>(2);
+            var symbols = new List<ISymbol>();
+
+            // sanitizing all characters to be xml-valid
+            foreach (var symbol in chSet.Symbols.Value)
+            {
+                switch (symbol)
+                {
+                    case OneCharOfTerminal oneCharOf:
+                        var t = oneCharOf.Chars.Where(XmlConvert.IsXmlChar).ToHashSet();
+                        ExtractAllSubsets(t, additionalRules);
+
+                        if (t.Count > 0)
+                            symbols.Add(new OneCharOfTerminal(t.ToArray()));
+                        break;
+                    case AnyCharExceptTerminal anyCharExcept:
+                        symbols.Add(new AnyCharExceptTerminal(anyCharExcept.Chars.Where(XmlConvert.IsXmlChar).ToArray()));
+                        break;
+                    default:
+                        symbols.Add(symbol);
+                        break;
+                }
+            }
+
+            if (additionalRules.Count == 0)
+                rules.Add(name, new Rule(name, symbols));
+            else if (symbols.Count == 0 && additionalRules.Count == 1)
+                rules.Add(name, new Rule(name, new ISymbol[] { new NonTerminal(additionalRules[0]) }));
+            else if (symbols.Count == 0)
+                rules.Add(name, new Rule(name, new ISymbol[] { new OneOf(false, additionalRules.ToArray()) }));
+            else
+            {
+                for (var i = 0; i < symbols.Count; i++)
+                {
+                    var symbol = symbols[i];
+                    var ruleName = name + '|' + i;
+                    rules.Add(ruleName, new Rule(ruleName, new[] { symbol }));
+                    additionalRules.Add(ruleName);
+                }
+
+                rules.Add(name, new Rule(name, new ISymbol[] { new OneOf(false, additionalRules.ToArray()) }));
+            }
         }
 
         private void ExtractAllSubsets(ISet<char> chSet, List<string> symbolNames)

@@ -17,7 +17,7 @@ LEX <<
 >>
 
 SEM <<
-  private static readonly IDictionary<string, ISet<char> > definedCharacterSets = new Dictionary<string, ISet<char> >();
+  private static readonly IDictionary<string, ChSet> definedCharacterSets = new Dictionary<string, ChSet>();
 >>
 
 CHARACTER SETS
@@ -105,7 +105,7 @@ RULES
   Cocol2Extractor =
       LOCAL<<string identifier = "";>>
       SEM<<definedCharacterSets.Clear();>>
-    'COMPILER' ident<<out identifier>> SEM<<CocolExtractor.Builder.AddStartRule(identifier); CocolExtractor.Builder.StartOfGrammar();>> 
+    'COMPILER' ident<<out identifier>> SEM<<CocolExtractor.Builder.AddStartRule(identifier); CocolExtractor.Builder.StartOfGrammar();>>
     [ 'LEX' ]
     [ 'SYN' ]
     [ 'SEM' ]
@@ -125,8 +125,8 @@ RULES
   SetDecl =
       LOCAL<<
         string name = null;
-        ISet<char> chSet = null;
-        ISet<char> chSet2 = null;
+        ChSet chSet = default;
+        ChSet chSet2 = default;
         bool shouldAdd = true;>>
     ident<<out name>> '='
     ChrSet<<out chSet>>
@@ -135,9 +135,9 @@ RULES
         ChrSet<<out chSet2>>
         SEM<<
           if (shouldAdd) {
-            chSet.UnionWith(chSet2);
+            chSet += chSet2;
           } else {
-            chSet.ExceptWith(chSet2);
+            chSet -= chSet2;
           }
         >>
       }
@@ -148,25 +148,25 @@ RULES
     >>
   .
 
-  ChrSet<<out ISet<char> chSet>> =
+  ChrSet<<out ChSet chSet>> =
       LOCAL<<
-        chSet = null;
+        chSet = default;
         string ident = null;
-        ISet<char> special = null;>>
+        char ch = ' '; char ch2 = ' ';>>
 
     ident<<out ident>> SEM<<chSet = definedCharacterSets[ident];>>
-    | 'ANY' SEM<<chSet = CocolExtractor.ANY_CHARACTER_SET.ToHashSet();>>
-    | 'EOL' SEM<<chSet = new HashSet<char>(1) { '\n' };>>
-    | Special<<out chSet>>
+    | 'ANY' SEM<<chSet = ChSet.Any;>>
+    | 'EOL' SEM<<chSet = ChSet.EndOfLine;>>
+    | Special<<out ch>> SEM<<chSet = ChSet.FromCh(ch);>>
       [
         '..'
-        Special<<out special>> SEM<<chSet = new HashSet<char>(Enumerable.Range(chSet.First(), special.First() - chSet.First() + 1).Select(i => (char)i));>>
+        Special<<out ch2>> SEM<<chSet = ChSet.FromChRange(ch, ch2);>>
       ]
   .
 
-  Special<<out ISet<char> set>> = LOCAL<<set = new HashSet<char>(); string str = null; int num = 0;>>
-      str<<out str>> SEM<<set = str.ToHashSet();>>
-      | 'CHR' '(' num<<out num>> SEM<<set.Add((char)num);>> ')'
+  Special<<out char ch>> = LOCAL<<ch = ' '; string str = null; int num = 0;>>
+      str<<out str>> SEM<<ch = char.Parse(str);>>
+      | 'CHR' '(' num<<out num>> SEM<<ch = (char)num;>> ')'
   .
 
   CommentDecl =
@@ -256,7 +256,7 @@ RULES
   LexFactNoRule =
     ident<<out _>> | str<<out _>> | 'CHR' '(' num<<out _>> ')' | 'EOL' | '(' LexExprNoRule ')' | '[' LexExprNoRule ']' | '{' LexExprNoRule '}'
   .
-  
+
   NonterminalDecl =
     ident<<out _>> [ AliasName ] '.'
     .
@@ -525,7 +525,7 @@ RULES
   PreAction =
     'PRE' EPS
   .
-  
+
   PostAction =
     'POST' EPS
   .
