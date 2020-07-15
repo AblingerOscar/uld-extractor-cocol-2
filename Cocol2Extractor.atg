@@ -4,13 +4,12 @@ LEX <<
   private static bool CommentHandler(char comCh, int comChCount, int level) {
     if (level > 1) return true; // only 1st level comments are considered
 
-    if (comChCount > 1)
-      CocolExtractor.Builder.AddCommentChar(comCh);
+    if (comChCount == 1)
+      CocolExtractor.Builder.NextCommentIsAction(comCh == '$');
+    else if (comChCount == 2)
+      CocolExtractor.Builder.NextCommentIsAroundAction(comCh == '$');
     else
-    {
-      var isAction = comCh == '$';
-      CocolExtractor.Builder.NextCommentIsAction(isAction);
-    }
+      CocolExtractor.Builder.AddCommentChar(comCh);
 
     return true;
   }
@@ -18,6 +17,38 @@ LEX <<
 
 SEM <<
   private static readonly IDictionary<string, ChSet> definedCharacterSets = new Dictionary<string, ChSet>();
+
+  private static ISymbol[] ApplyAroundActions(string identifier, ISymbol[] symbols, IAction[] aroundActions) {
+    var wrappedSymbols = new ISymbol[symbols.Length + aroundActions.Length * 2];
+    Array.Copy(symbols, 0, wrappedSymbols, aroundActions.Length, symbols.Length);
+
+    for(var i = 0; i < aroundActions.Length; ++i) {
+      switch (aroundActions[i].GetBaseCommand()) {
+        case IAction.IDENTIFIER:
+          wrappedSymbols[i] = aroundActions[i];
+          wrappedSymbols[wrappedSymbols.Length - i - 1] = aroundActions[i];
+          break;
+        case IAction.FOLDING:
+          wrappedSymbols[i] =
+            new autosupport_lsp_server.Symbols.Impl.Action(IAction.FOLDING + " " + IAction.FOLDING_START);
+          wrappedSymbols[wrappedSymbols.Length - i - 1] =
+            new autosupport_lsp_server.Symbols.Impl.Action(IAction.FOLDING + " " + IAction.FOLDING_END);
+          break;
+        case IAction.IDENTIFIER_TYPE:
+          wrappedSymbols[i] =
+            new autosupport_lsp_server.Symbols.Impl.Action(IAction.IDENTIFIER_TYPE + " " + IAction.IDENTIFIER_TYPE_ARG_INNER);
+          wrappedSymbols[wrappedSymbols.Length - i - 1] =
+            new autosupport_lsp_server.Symbols.Impl.Action(IAction.IDENTIFIER_TYPE + " " + IAction.IDENTIFIER_TYPE_ARG_INNER);
+          break;
+        default:
+          CocolExtractor.Builder.Errors
+            .Add($"[{identifier}]: unsupported around action: {aroundActions[i].GetBaseCommand()}");
+          break;
+      }
+    }
+
+    return wrappedSymbols;
+  }
 >>
 
 CHARACTER SETS
@@ -105,7 +136,8 @@ RULES
   Cocol2Extractor =
       LOCAL<<string identifier = "";>>
       SEM<<definedCharacterSets.Clear();>>
-    'COMPILER' ident<<out identifier>> SEM<<CocolExtractor.Builder.AddStartRule(identifier); CocolExtractor.Builder.StartOfGrammar();>>
+    'COMPILER'
+      ident<<out identifier>> SEM<<CocolExtractor.Builder.AddStartRule(identifier); CocolExtractor.Builder.StartOfGrammar();>>
     [ 'LEX' ]
     [ 'SYN' ]
     [ 'SEM' ]
@@ -239,13 +271,20 @@ RULES
     ( ident<<out _>> [ AliasName ] [ '=' LexExprNoRule ] | str<<out _>> [ AliasName ]) '.'
   .
 
-  TokenClassDecl = LOCAL<<string ident = null; ISymbol[] symbols = null;>>
+  TokenClassDecl = LOCAL<<string ident = null; ISymbol[] symbols = null; var aroundActions = new IAction[0];>>
     ident<<out ident>> [ AliasName ]
+    SEM<<aroundActions = CocolExtractor.Builder.PopAllAroundActions();>>
     [
       '=' LexExpr<<ident, out symbols>>
-        SEM<<CocolExtractor.Builder.AddRule(ident, symbols, false, true);>>
+        SEM<<
+          if (aroundActions.Length > 0)
+            symbols = ApplyAroundActions(ident, symbols, aroundActions);
+
+          CocolExtractor.Builder.AddRule(ident, symbols, false, true);
+        >>
       [ LexDecl ] [ LexAction ]
     ] '.'
+    SEM<<// TODO: what happens if no production is specified>>
   .
 
   PragmaDecl =
@@ -335,35 +374,47 @@ RULES
     [ 'IF' 'FOLLOWED' 'BY' '(' LexExprNoRule ')' ]
   .
 
-  LexFact<<string name, out ISymbol[] symbols>> = LOCAL<<symbols = null; string str = null; int num = 0; ISymbol[] innerSymbols = null;>>
+  LexFact<<string name, out ISymbol[] symbols>> = LOCAL<<symbols = null; string str = null; int num = 0; ISymbol[] innerSymbols = null; IAction[] actionsBeforeGrouping = null;>>
     // non-terminal
-    ident<<out str>> SEM<<symbols = new ISymbol[] { new NonTerminal(str) };>>
+    ident<<out str>> SEM<<symbols = CocolExtractor.Builder.PopAllSpecificActions().Add<IAction, ISymbol>(new NonTerminal(str));>>
     // terminal
-    | str<<out str>> SEM<<symbols = new ISymbol[] { new StringTerminal(str) };>>
+    | str<<out str>> SEM<<symbols = CocolExtractor.Builder.PopAllSpecificActions().Add<IAction, ISymbol>(new StringTerminal(str));>>
     // specific character
-    | 'CHR' '(' num<<out num>> ')' SEM<<symbols = new ISymbol[] { new StringTerminal(num.ToString()) };>>
+    | 'CHR' '(' num<<out num>> ')' SEM<<symbols = CocolExtractor.Builder.PopAllSpecificActions().Add<IAction, ISymbol>(new StringTerminal(num.ToString()));>>
     // End of line
-    | 'EOL' SEM<<symbols = new ISymbol[] { new AnyLineEndTerminal() };>>
+    | 'EOL' SEM<<symbols = CocolExtractor.Builder.PopAllSpecificActions().Add<IAction, ISymbol>(new AnyLineEndTerminal());>>
     // Grouping -> simple inner rule and new NonTerminal
     //   theoretically could also check what's inside and either bubble up (if no | was used at top level)
     //   or wrap in an OneOf (if an | was used at top level)
-    | '(' LexExpr<<name + "$inner", out innerSymbols>> ')'
+    |
+      '('
+        SEM<<actionsBeforeGrouping = CocolExtractor.Builder.PopAllSpecificActions();>>
+        LexExpr<<name + "$inner", out innerSymbols>>
+      ')'
         SEM<<
           CocolExtractor.Builder.AddRule(name + "$inner", innerSymbols, false);
-          symbols = new ISymbol[] { new NonTerminal(name + "$inner") };
+          symbols = actionsBeforeGrouping.Add<IAction, ISymbol>(new NonTerminal(name + "$inner"));
         >>
     // Optional -> OneOf with AllowNone=true and only option being the symbols inside
-    | '[' LexExpr<<name + "$optional", out innerSymbols>> ']'
+    |
+      '['
+        SEM<<actionsBeforeGrouping = CocolExtractor.Builder.PopAllSpecificActions();>>
+        LexExpr<<name + "$optional", out innerSymbols>>
+      ']'
         SEM<<
           CocolExtractor.Builder.AddRule(name + "$optional", innerSymbols, false);
-          symbols = new ISymbol[] { new OneOf(true, new[] { name + "$optional" }) };
+          symbols = actionsBeforeGrouping.Add<IAction, ISymbol>(new OneOf(true, new[] { name + "$optional" }));
         >>
     // zeroOrmore -> Transformed into new rule as following:
     //    A = { B } .
     // is transformed into
     //    A = OneOf(C)? .
     //    C = B OneOf(C)? .
-    | '{' LexExpr<<name + "$zeroOrMore", out innerSymbols>> '}'
+    |
+      '{'
+        SEM<<actionsBeforeGrouping = CocolExtractor.Builder.PopAllSpecificActions();>>
+        LexExpr<<name + "$zeroOrMore", out innerSymbols>>
+      '}'
         SEM<<
           string zeroOrMoreName = name + "$zeroOrMore";
 
@@ -372,16 +423,23 @@ RULES
           symbolList.Add(new OneOf(true, new[] { zeroOrMoreName }));
 
           CocolExtractor.Builder.AddRule(zeroOrMoreName, symbolList.ToArray(), false);
-          symbols = new ISymbol[] { new OneOf(true, new[] { zeroOrMoreName }) };
+          symbols = actionsBeforeGrouping.Add<IAction, ISymbol>(new OneOf(true, new[] { zeroOrMoreName }));
         >>
  .
 
-  RuleDef = LOCAL<<string identifier = null; ISymbol[] symbols = null;>>
+  RuleDef = LOCAL<<string identifier = null; ISymbol[] symbols = null; var aroundActions = new IAction[0];>>
     ident<<out identifier>>
+    SEM<<aroundActions = CocolExtractor.Builder.PopAllAroundActions();>>
     '=' [ SemDecl ] [ PreAction ] [ PostAction ]
     SynExpr<<identifier, out symbols>>
-      SEM <<if (symbols != null) CocolExtractor.Builder.AddRule(identifier, symbols); >>
     '.'
+    SEM <<
+      if (aroundActions.Length > 0)
+        symbols = ApplyAroundActions(identifier, symbols, aroundActions);
+
+      if (symbols != null)
+        CocolExtractor.Builder.AddRule(identifier, symbols);
+    >>
   .
 
   SynExpr<<string name, out ISymbol[] symbols>> =

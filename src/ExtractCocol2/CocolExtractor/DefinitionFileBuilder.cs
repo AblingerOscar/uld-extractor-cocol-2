@@ -5,9 +5,11 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 using autosupport_lsp_server;
+using autosupport_lsp_server.Shared;
 using autosupport_lsp_server.Symbols;
 using autosupport_lsp_server.Symbols.Impl;
 using autosupport_lsp_server.Symbols.Impl.Terminals;
+using Action = autosupport_lsp_server.Symbols.Impl.Action;
 
 // ReSharper disable once CheckNamespace
 namespace DefinitionFileBuilder
@@ -17,7 +19,10 @@ namespace DefinitionFileBuilder
         private const string WHITESPACE_RULE = "$$ws";
 
         private bool nextCommentIsAction;
+        private bool nextCommentIsAroundAction;
         private readonly StringBuilder currentComment = new StringBuilder();
+        private readonly List<IAction> aroundActions = new List<IAction>();
+        private readonly List<IAction> specificActions = new List<IAction>();
         private CommentParserState commentParserState = CommentParserState.HEADING;
 
         private readonly List<string> keywords = new List<string>();
@@ -29,6 +34,8 @@ namespace DefinitionFileBuilder
         private readonly IList<string> startRules = new List<string>();
         private readonly Dictionary<string, IRule> rules = new Dictionary<string, IRule>();
         private readonly IList<string> rulesToForceWhitespaceInBetween = new List<string>();
+
+        public IList<string> Errors = new List<string>();
 
         public DefinitionFileBuilder()
         {
@@ -124,6 +131,12 @@ namespace DefinitionFileBuilder
             nextCommentIsAction = isAction;
         }
 
+        public void NextCommentIsAroundAction(bool isAction)
+        {
+            CommentIsFinished();
+            nextCommentIsAroundAction = nextCommentIsAction && isAction;
+        }
+
         public void AddCommentChar(char ch)
             => currentComment.Append(ch);
 
@@ -137,8 +150,10 @@ namespace DefinitionFileBuilder
                         InterpretHeadingComment();
                         break;
                     case CommentParserState.GRAMMAR:
-                        // TODO
+                        InterpretGrammarComment();
                         break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
                 }
             }
 
@@ -150,8 +165,9 @@ namespace DefinitionFileBuilder
             var comment = currentComment.ToString().Trim().Split(' ');
             if (comment.Length < 2)
             {
-                Console.WriteLine("heading annotation does not have enough arguments: <" + comment.JoinToString(" ") +
-                                  ">");
+                Errors.Add("heading annotation does not have enough arguments: <"
+                           + comment.JoinToString(" ")
+                           + ">");
                 return;
             }
 
@@ -166,14 +182,40 @@ namespace DefinitionFileBuilder
                     languageFilePattern = arg;
                     break;
                 default:
-                    Console.WriteLine("unrecognised heading annotation: " + arg);
+                    Errors.Add("unrecognised heading annotation: " + arg);
                     break;
             }
+        }
+
+        private void InterpretGrammarComment()
+        {
+            var comment = currentComment.ToString().Trim();
+            if (nextCommentIsAroundAction)
+                aroundActions.Add(new Action(comment));
+            else
+                specificActions.Add(new Action(comment));
+        }
+
+        public IAction[] PopAllAroundActions()
+        {
+            CommentIsFinished();
+            var actions = aroundActions.ToArray();
+            aroundActions.Clear();
+            return actions;
+        }
+
+        public IAction[] PopAllSpecificActions()
+        {
+            CommentIsFinished();
+            var actions = specificActions.ToArray();
+            specificActions.Clear();
+            return actions;
         }
 
         public void StartOfGrammar()
         {
             CommentIsFinished();
+            commentParserState = CommentParserState.GRAMMAR;
         }
 
         public void StartOfRules()
@@ -188,7 +230,10 @@ namespace DefinitionFileBuilder
 
         public void AddKeyword(string keyword) => keywords.Add(keyword);
 
-        public void AddRule(string ruleName, ISymbol[] symbols, bool forceWhitespacesInBetween = true,
+        public void AddRule(
+            string ruleName,
+            ISymbol[] symbols,
+            bool forceWhitespacesInBetween = true,
             bool forceWhitespacesAtTheEnd = false)
         {
             if (forceWhitespacesInBetween)
@@ -279,7 +324,7 @@ namespace DefinitionFileBuilder
         {
             if (!chSet.Symbols.HasValue)
             {
-                Console.WriteLine($"Character set {name} is an empty set. No rule was added!");
+                Errors.Add($"Character set {name} is an empty set. No rule was added!");
                 return;
             }
 

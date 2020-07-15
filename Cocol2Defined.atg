@@ -31,7 +31,8 @@ TOKENS
   '='. '+'. '-'. '|'. '.'. '('. ')'. '['. ']'. '{'. '}'. '..'.
 
 TOKEN CLASSES
-  ident ALIAS 'identifier' = letter { letter | digit }.
+  //$$ identifier
+  ident  ALIAS 'identifier' = letter { letter | digit }.
   str    ALIAS 'string' = ( "'" { noQuote1 } "'" | '"' { noQuote2 } '"' ).
   num    ALIAS 'number' = digit { digit }.
 
@@ -78,24 +79,52 @@ NONTERMINALS
   PostAction                 ALIAS 'post action'.
 
 RULES
+  //$$ folding
   Cocol2Extractor =
-    'COMPILER' ident 
+    'COMPILER' ident
     [ 'LEX' ]
     [ 'SYN' ]
     [ 'SEM' ]
     [ 'IGNORE' 'CASE' ]
-    [ 'CHARACTER' 'SETS' { SetDecl } ]
-    [ 'COMMENTS' { CommentDecl } ]
-    [ 'KEYWORDS' { KeywordDecl } ]
-    [ 'TOKENS' { TokenDecl } ]
-    [ 'TOKEN' 'CLASSES' { TokenClassDecl } ]
-    [ 'PRAGMAS' { PragmaDecl } ]
-    [ 'NONTERMINALS' { NonterminalDecl } ]
-    [ 'RULES' { RuleDef } ]
+    [ //$ folding start
+      'CHARACTER' 'SETS' { SetDecl }
+      //$ folding end
+    ]
+    [ //$ folding start
+      'COMMENTS' { CommentDecl }
+      //$ folding end
+    ]
+    [ //$ folding start
+      'KEYWORDS' { KeywordDecl }
+      //$ folding end
+    ]
+    [ //$ folding start
+      'TOKENS' { TokenDecl }
+      //$ folding end
+    ]
+    [ //$ folding start
+      'TOKEN' 'CLASSES' { TokenClassDecl }
+      //$ folding end
+    ]
+    [ //$ folding start
+      'PRAGMAS' { PragmaDecl }
+      //$ folding end
+    ]
+    [ //$ folding start
+      'NONTERMINALS' { NonterminalDecl }
+      //$ folding end
+    ]
+    [ //$ folding start
+      'RULES' { RuleDef }
+      //$ folding end
+    ]
     'END' ident '.'
   .
 
   SetDecl =
+  //$ identifierType set charSet
+  //$ declaration
+  //$ implementation
     ident '=' ChrSet { ( '+' | '-' ) ChrSet } [ 'IGNORE' ] '.'
   .
 
@@ -112,22 +141,39 @@ RULES
   .
 
   Delimiter =
-      DelimiterPart [ DelimiterPart ]
+    DelimiterPart [ DelimiterPart ]
   .
 
   DelimiterPart =
-      str | ident | 'CHR' '(' num ')' | 'EOL'
+    str | ident | 'CHR' '(' num ')' | 'EOL'
   .
 
   KeywordDecl =
-      ( ident [ AliasName ] [ '=' str { '|' str } ] | str [ AliasName ]) '.'
+    (
+      //$ identifierType set symbol
+      //$ identifierType set terminal
+      //$ identifierType set keyword
+      //$ declaration
+      //$ implementation
+      ident [ AliasName ] [ '=' str { '|' str } ] | str [ AliasName ] ) '.'
   .
 
   TokenDecl =
-    ( ident [ AliasName ] [ '=' LexExpr ] | str [ AliasName ]) '.'
+    (
+      //$ identifierType set symbol
+      //$ identifierType set terminal
+      //$ identifierType set token
+      //$ declaration
+      //$ implementation
+      ident [ AliasName ] [ '=' LexExpr ] | str [ AliasName ] ) '.'
   .
 
   TokenClassDecl =
+    //$ identifierType set symbol
+    //$ identifierType set terminal
+    //$ identifierType set tokenClass
+    //$ declaration
+    //$ implementation
     ident [ AliasName ] [ '=' LexExpr [ LexDecl ] [ LexAction ] ] '.'
   .
 
@@ -136,8 +182,12 @@ RULES
   .
 
   NonterminalDecl =
+    //$ identifierType set symbol
+    //$ identifierType set terminal
+    //$ identifierType set tokenClass
+    //$ declaration
     ident [ AliasName ] '.'
-    .
+  .
 
   AliasName =
     'ALIAS' ( ident | str)
@@ -155,7 +205,12 @@ RULES
     ident | str | 'CHR' '(' num ')' | 'EOL' | '(' LexExpr ')' | '[' LexExpr ']' | '{' LexExpr '}'
  .
 
+  //$$ folding
   RuleDef =
+    //$ identifierType set symbol
+    //$ identifierType set terminal
+    //$ identifierType set tokenClass
+    //$ implementation
     ident '=' [ SemDecl ] [ PreAction ] [ PostAction ] SynExpr '.'
   .
 
@@ -194,7 +249,7 @@ RULES
   PreAction =
     'PRE' EPS
   .
-  
+
   PostAction =
     'POST' EPS
   .

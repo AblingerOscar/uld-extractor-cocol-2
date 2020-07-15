@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
+using autosupport_lsp_server;
 
 // ReSharper disable once CheckNamespace
 public static class CocolExtractor
@@ -38,6 +39,14 @@ public static class CocolExtractor
         Console.WriteLine("finished set-up");
 
         Cocol2Extractor.Main(args.Skip(1).ToArray());
+
+        if (Builder.Errors.Count > 0)
+        {
+            Console.WriteLine($"Found {Builder.Errors.Count} error{(Builder.Errors.Count == 1 ? "" : "s")} while parsing:");
+
+            foreach (var error in Builder.Errors)
+                Console.WriteLine('\t' + error);
+        }
 
         Console.WriteLine("building file");
         var langDef = Builder.Build();

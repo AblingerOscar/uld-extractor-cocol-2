@@ -105,10 +105,12 @@
       </oneOf>
     </rule>
     <rule name="ident">
+      <action>identifier</action>
       <nonTerminal referencedRule="letter" />
       <oneOf allowNone="true">
         <option>ident|0_1$zeroOrMore</option>
       </oneOf>
+      <action>identifier</action>
       <nonTerminal referencedRule="$$ws" />
     </rule>
     <rule name="str|0_0$inner|0_1$zeroOrMore">
@@ -314,6 +316,7 @@
       <oneOf allowNone="true">
         <option>$$ws</option>
       </oneOf>
+      <action>folding start</action>
       <string>COMPILER</string>
       <oneOf allowNone="true">
         <option>$$ws</option>
@@ -364,6 +367,7 @@
       <oneOf allowNone="true">
         <option>$$ws</option>
       </oneOf>
+      <action>folding end</action>
     </rule>
     <rule name="SetDecl|0_3$zeroOrMore|0_0$inner|0">
       <string>+</string>
@@ -887,6 +891,7 @@
       <nonTerminal referencedRule="PostAction" />
     </rule>
     <rule name="RuleDef">
+      <action>folding start</action>
       <nonTerminal referencedRule="ident" />
       <string>=</string>
       <oneOf allowNone="true">
@@ -906,6 +911,7 @@
       <oneOf allowNone="true">
         <option>$$ws</option>
       </oneOf>
+      <action>folding end</action>
     </rule>
     <rule name="SynExpr|0_1$zeroOrMore">
       <string>|</string>
