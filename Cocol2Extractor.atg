@@ -169,16 +169,23 @@ RULES
       | 'CHR' '(' num<<out num>> SEM<<ch = (char)num;>> ')'
   .
 
-  CommentDecl =
-    'FROM' Delimiter 'TO' Delimiter [ 'NESTED' ] [ 'HANDLER' ident<<out _>> ] '.'
+  CommentDecl = LOCAL<<var start = ""; var end = "";>>
+    'FROM' Delimiter<<out start>> 'TO' Delimiter<<out end>>
+        SEM<<CocolExtractor.Builder.AddComments(start, end);>>
+    [ 'NESTED' ] [ 'HANDLER' ident<<out _>> ] '.'
   .
 
-  Delimiter =
-      DelimiterPart [ DelimiterPart ]
+  Delimiter<<out string delimiter>> = LOCAL<<delimiter = ""; var del = "";>>
+      DelimiterPart<<out del>> SEM<<delimiter = del;>>
+      [
+        DelimiterPart<<out del>> SEM<<delimiter += del;>>
+      ]
   .
 
-  DelimiterPart =
-      str<<out _>> | 'CHR' '(' num<<out _>> ')' | 'EOL'
+  DelimiterPart<<out string str>> = LOCAL<<str = ""; var num = 0;>>
+      str<<out str>>
+      | 'CHR' '(' num<<out num>> SEM<<str = num.ToString();>> ')'
+      | 'EOL' SEM<<str = "\n";>>
   .
 
   KeywordDecl = LOCAL<<var str = ""; var ident = ""; var otherStr = ""; var options = new List<string>();>>

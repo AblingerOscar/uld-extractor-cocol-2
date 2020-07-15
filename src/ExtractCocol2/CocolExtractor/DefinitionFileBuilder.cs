@@ -51,7 +51,7 @@ namespace DefinitionFileBuilder
 
             return new AutosupportLanguageDefinition(
                 languageId, languageFilePattern,
-                commentRules: new CommentRules(normalComments.ToArray(), documentationComments.ToArray()),
+                new CommentRules(normalComments.ToArray(), documentationComments.ToArray()),
                 startRules.ToArray(), rules
             );
         }
@@ -267,6 +267,14 @@ namespace DefinitionFileBuilder
             );
         }
 
+        public void AddComments(string start, string end, bool isDocumentation = false)
+        {
+            if (isDocumentation)
+                documentationComments.Add(new CommentRule(start, end, " "));
+            else
+                normalComments.Add(new CommentRule(start, end, " "));
+        }
+
         public void AddCharacterSetRule(string name, ChSet chSet)
         {
             if (!chSet.Symbols.HasValue)
@@ -291,7 +299,8 @@ namespace DefinitionFileBuilder
                             symbols.Add(new OneCharOfTerminal(t.ToArray()));
                         break;
                     case AnyCharExceptTerminal anyCharExcept:
-                        symbols.Add(new AnyCharExceptTerminal(anyCharExcept.Chars.Where(XmlConvert.IsXmlChar).ToArray()));
+                        symbols.Add(
+                            new AnyCharExceptTerminal(anyCharExcept.Chars.Where(XmlConvert.IsXmlChar).ToArray()));
                         break;
                     default:
                         symbols.Add(symbol);

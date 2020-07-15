@@ -1,7 +1,35 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <languageDefinition name="Cocol-2" filePattern="**/*.atg">
   <comments>
-    <normalComments />
+    <normalComments>
+      <comment>
+        <start>//</start>
+        <end>
+</end>
+        <treatAs> </treatAs>
+      </comment>
+      <comment>
+        <start>/*</start>
+        <end>*/</end>
+        <treatAs> </treatAs>
+      </comment>
+      <comment>
+        <start>(*</start>
+        <end>*)</end>
+        <treatAs> </treatAs>
+      </comment>
+      <comment>
+        <start>&lt;&lt;</start>
+        <end>&gt;&gt;</end>
+        <treatAs> </treatAs>
+      </comment>
+      <comment>
+        <start>^^</start>
+        <end>
+</end>
+        <treatAs> </treatAs>
+      </comment>
+    </normalComments>
     <documentationComments />
   </comments>
   <startRules>
