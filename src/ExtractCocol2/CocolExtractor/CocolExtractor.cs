@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Linq;
-using autosupport_lsp_server;
 
 // ReSharper disable once CheckNamespace
 public static class CocolExtractor
@@ -74,3 +73,4 @@ public static class CocolExtractor
         Console.WriteLine("All done.");
     }
 }
+

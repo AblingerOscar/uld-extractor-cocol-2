@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Xml;
 using autosupport_lsp_server;
-using autosupport_lsp_server.Shared;
 using autosupport_lsp_server.Symbols;
 using autosupport_lsp_server.Symbols.Impl;
 using autosupport_lsp_server.Symbols.Impl.Terminals;
@@ -48,15 +47,13 @@ namespace DefinitionFileBuilder
                     }));
         }
 
-        public IAutosupportLanguageDefinition Build()
+        public ILanguageDefinition Build()
         {
-            CommentIsFinished();
-
             rulesToForceWhitespaceInBetween.ForEach(ruleName =>
                 rules[ruleName] = new Rule(ruleName, AddForcedWhitespace(rules[ruleName].Symbols)));
             AddWhitespaceRulesToStartRules();
 
-            return new AutosupportLanguageDefinition(
+            return new LanguageDefinition(
                 languageId, languageFilePattern,
                 new CommentRules(normalComments.ToArray(), documentationComments.ToArray()),
                 startRules.ToArray(), rules
@@ -133,7 +130,6 @@ namespace DefinitionFileBuilder
 
         public void NextCommentIsAroundAction(bool isAction)
         {
-            CommentIsFinished();
             nextCommentIsAroundAction = nextCommentIsAction && isAction;
         }
 
@@ -216,11 +212,6 @@ namespace DefinitionFileBuilder
         {
             CommentIsFinished();
             commentParserState = CommentParserState.GRAMMAR;
-        }
-
-        public void StartOfRules()
-        {
-            CommentIsFinished();
         }
 
         public void AddStartRule(string ruleName)
@@ -331,17 +322,26 @@ namespace DefinitionFileBuilder
             var additionalRules = new List<string>(2);
             var symbols = new List<ISymbol>();
 
+            var nonXmlCharacters = chSet.Symbols.Value.SelectMany(s => s switch
+            {
+                OneCharOfTerminal oneCharOf => oneCharOf.Chars,
+                AnyCharExceptTerminal anyCharExcept => anyCharExcept.Chars,
+                _ => Enumerable.Empty<char>()
+            }).ToImmutableHashSet();
+
+
+
             // sanitizing all characters to be xml-valid
             foreach (var symbol in chSet.Symbols.Value)
             {
                 switch (symbol)
                 {
                     case OneCharOfTerminal oneCharOf:
-                        var t = oneCharOf.Chars.Where(XmlConvert.IsXmlChar).ToHashSet();
-                        ExtractAllSubsets(t, additionalRules);
+                        var xmlChars = oneCharOf.Chars.Where(XmlConvert.IsXmlChar).ToHashSet();
+                        ExtractAllSubsets(xmlChars, additionalRules);
 
-                        if (t.Count > 0)
-                            symbols.Add(new OneCharOfTerminal(t.ToArray()));
+                        if (xmlChars.Count > 0)
+                            symbols.Add(new OneCharOfTerminal(xmlChars.ToArray()));
                         break;
                     case AnyCharExceptTerminal anyCharExcept:
                         symbols.Add(
