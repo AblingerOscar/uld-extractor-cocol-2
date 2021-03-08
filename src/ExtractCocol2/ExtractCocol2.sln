@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.30011.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CocolExtractor", "CocolExtractor\CocolExtractor.csproj", "{34E1F4D3-3471-45E7-89ED-17FCE616011E}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "autosupport-definition", "autosupport-definition\autosupport-definition.csproj", "{F93AD3AC-86A9-49BF-BE50-3AFE4FA673E9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "uld-definition", "uld-definition\uld-definition.csproj", "{F93AD3AC-86A9-49BF-BE50-3AFE4FA673E9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

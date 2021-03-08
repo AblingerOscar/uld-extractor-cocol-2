@@ -4,11 +4,11 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Xml;
-using autosupport_lsp_server;
-using autosupport_lsp_server.Symbols;
-using autosupport_lsp_server.Symbols.Impl;
-using autosupport_lsp_server.Symbols.Impl.Terminals;
-using Action = autosupport_lsp_server.Symbols.Impl.Action;
+using uld.definition;
+using uld.definition.Symbols;
+using uld.definition.Symbols.Impl;
+using uld.definition.Symbols.Impl.Terminals;
+using Action = uld.definition.Symbols.Impl.Action;
 
 // ReSharper disable once CheckNamespace
 namespace DefinitionFileBuilder

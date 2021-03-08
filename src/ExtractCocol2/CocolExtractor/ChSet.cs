@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using autosupport_lsp_server;
-using autosupport_lsp_server.Symbols;
-using autosupport_lsp_server.Symbols.Impl.Terminals;
+using uld.definition;
+using uld.definition.Symbols;
+using uld.definition.Symbols.Impl.Terminals;
 
 public readonly struct ChSet
 {
