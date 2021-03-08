@@ -1,0 +1,65 @@
+//$ id SimpleGrammar
+//$ filePattern **/*.atg
+
+COMPILER SimpleGrammar
+
+CHARACTER SETS
+  letter   =  'A' .. 'Z' + 'a' .. 'z'.
+  digit    =  '0' .. '9'.
+
+COMMENTS
+  FROM '/*' TO '*/'.
+
+KEYWORDS
+  'Program'.
+  'var'.
+  'print'.
+
+TOKENS
+  '='. ';'.
+
+TOKEN CLASSES
+  //$$ identifier
+  identifier = letter { letter | digit }.
+  number     = digit { digit }.
+
+NONTERMINALS
+
+SimpleGrammar .
+VarDecl .
+VarPrint .
+
+RULES
+
+SimpleGrammar =
+  'Program'
+  //$ identifierKind set Module
+  //$ identifierType set Module
+  //$ declaration
+  //$ definition
+  //$ implementation
+  identifier
+  { VarDecl | VarPrint }
+.
+
+VarDecl =
+  'var'
+  //$ identifierKind set Variable
+  //$ identifierType set Number
+  //$ declaration
+  //$ definition
+  identifier
+  '='
+  number
+  ';'
+.
+
+VarPrint =
+  //$ identifierKind set Variable
+  //$ identifierType set Number
+  identifier
+  'print'
+  ';'
+.
+
+END SimpleGrammar.
